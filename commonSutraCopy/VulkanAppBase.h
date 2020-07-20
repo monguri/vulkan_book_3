@@ -112,6 +112,7 @@ private:
 	VkDebugReportCallbackEXT m_debugReport = VK_NULL_HANDLE;
 
 protected:
+	VkDeviceMemory AllocateMemory(VkImage image, VkMemoryPropertyFlags memProps);
 	void MsgLoopMinimizedWindow();
 
 	VkDevice m_device = VK_NULL_HANDLE;

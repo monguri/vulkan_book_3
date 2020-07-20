@@ -258,6 +258,25 @@ void VulkanAppBase::SelectGraphicsQueue()
 	m_gfxQueueIndex = graphicsQueue;
 }
 
+VkDeviceMemory VulkanAppBase::AllocateMemory(VkImage image, VkMemoryPropertyFlags memProps)
+{
+	VkMemoryRequirements reqs;
+	vkGetImageMemoryRequirements(m_device, image, &reqs);
+
+	VkMemoryAllocateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	info.pNext = nullptr;
+	info.allocationSize = reqs.size;
+	info.memoryTypeIndex = GetMemoryTypeIndex(reqs.memoryTypeBits, memProps); // 本だとmemProps変数をここで使ってなくてVK_MEMORY_PROPERTY_DEVICE_LOCAL_BITを入れてるバグがある
+
+	VkDeviceMemory memory = VK_NULL_HANDLE;
+
+	VkResult result = vkAllocateMemory(m_device, &info, nullptr, &memory);
+	ThrowIfFailed(result, "vkAllocateMemory Failed.");
+
+	return memory;
+}
+
 #define GetInstanceProcAddr(FuncName) \
 m_##FuncName = reinterpret_cast<PFN_##FuncName>(vkGetInstanceProcAddr(m_vkInstance, #FuncName))
 
