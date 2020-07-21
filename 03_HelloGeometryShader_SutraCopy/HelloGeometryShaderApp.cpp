@@ -9,7 +9,8 @@
 
 void HelloGeometryShaderApp::Prepare()
 {
-	PrepareRenderPass();
+	VkRenderPass renderPass = CreateRenderPass(m_swapchain->GetSurfaceFormat().format, VK_FORMAT_D32_SFLOAT);
+	RegisterRenderPass("default", renderPass);
 
 	PrepareImGui();
 
@@ -48,8 +49,6 @@ void HelloGeometryShaderApp::Cleanup()
 	vkDestroyPipeline(m_device, m_pipeline, nullptr);
 	vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
 	vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
-
-	vkDestroyRenderPass(m_device, m_renderPass, nullptr);
 
 	DestroyImage(m_depthBuffer);
 	uint32_t count = uint32_t(m_framebuffers.size());
@@ -92,7 +91,7 @@ void HelloGeometryShaderApp::Render()
 	VkRenderPassBeginInfo rpBI{};
 	rpBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	rpBI.pNext = nullptr;
-	rpBI.renderPass = m_renderPass;
+	rpBI.renderPass = GetRenderPass("default");
 	rpBI.framebuffer = m_framebuffers[imageIndex];
 	rpBI.renderArea = renderArea;
 	rpBI.clearValueCount = uint32_t(clearValue.size());
@@ -205,7 +204,7 @@ void HelloGeometryShaderApp::PrepareImGui()
 	info.DescriptorPool = m_descriptorPool;
 	info.MinImageCount = m_swapchain->GetImageCount();
 	info.ImageCount = m_swapchain->GetImageCount();
-	success = ImGui_ImplVulkan_Init(&info, m_renderPass);
+	success = ImGui_ImplVulkan_Init(&info, GetRenderPass("default"));
 
 	// フォントテクスチャを転送する
 	VkCommandBufferAllocateInfo allocInfo{};
@@ -301,55 +300,6 @@ bool HelloGeometryShaderApp::OnSizeChanged(uint32_t width, uint32_t height)
 	return isResized;
 }
 
-void HelloGeometryShaderApp::PrepareRenderPass()
-{
-	std::array<VkAttachmentDescription, 2> attachments;
-	attachments[0] = book_util::GetAttachmentDescription(
-		m_swapchain->GetSurfaceFormat().format,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-	);
-	attachments[1] = book_util::GetAttachmentDescription(
-		VK_FORMAT_D32_SFLOAT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-	);
-
-	VkAttachmentReference colorRef{};
-	colorRef.attachment = 0;
-	colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentReference depthRef{};
-	depthRef.attachment = 1;
-	depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpassDesc{};
-	subpassDesc.flags = 0;
-	subpassDesc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpassDesc.inputAttachmentCount = 0;
-	subpassDesc.pInputAttachments = nullptr;
-	subpassDesc.colorAttachmentCount = 1;
-	subpassDesc.pColorAttachments = &colorRef;
-	subpassDesc.pResolveAttachments = nullptr;
-	subpassDesc.pDepthStencilAttachment = &depthRef;
-	subpassDesc.preserveAttachmentCount = 0;
-	subpassDesc.pPreserveAttachments = nullptr;
-
-	VkRenderPassCreateInfo rpCI{};
-	rpCI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	rpCI.pNext = nullptr;
-	rpCI.flags = 0;
-	rpCI.attachmentCount = uint32_t(attachments.size());
-	rpCI.pAttachments = attachments.data();
-	rpCI.subpassCount = 1;
-	rpCI.pSubpasses = &subpassDesc;
-	rpCI.dependencyCount = 0;
-	rpCI.pDependencies = nullptr;
-
-	VkResult result = vkCreateRenderPass(m_device, &rpCI, nullptr, &m_renderPass);
-	ThrowIfFailed(result, "vkCreateRenderPass Failed.");
-}
-
 void HelloGeometryShaderApp::PrepareDepthbuffer()
 {
 	// デプスバッファを準備する
@@ -361,6 +311,7 @@ void HelloGeometryShaderApp::PrepareFramebuffers()
 {
 	uint32_t imageCount = m_swapchain->GetImageCount();
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
+	VkRenderPass renderPass = GetRenderPass("default");
 
 	m_framebuffers.resize(imageCount);
 	for (uint32_t i = 0; i < imageCount; i++)
@@ -369,7 +320,7 @@ void HelloGeometryShaderApp::PrepareFramebuffers()
 		views.push_back(m_swapchain->GetImageView(i));
 		views.push_back(m_depthBuffer.view);
 
-		m_framebuffers[i] = CreateFramebuffer(m_renderPass, extent.width, extent.height, uint32_t(views.size()), views.data());
+		m_framebuffers[i] = CreateFramebuffer(renderPass, extent.width, extent.height, uint32_t(views.size()), views.data());
 	}
 }
 
@@ -614,6 +565,8 @@ void HelloGeometryShaderApp::CreatePipeline()
 	pipelineDynamicStateCI.dynamicStateCount = uint32_t(dynamicStates.size());
 	pipelineDynamicStateCI.pDynamicStates = dynamicStates.data();
 
+	VkRenderPass renderPass = GetRenderPass("default");
+
 	// パイプライン構築
 	VkGraphicsPipelineCreateInfo pipelineCI{};
 	pipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -630,7 +583,7 @@ void HelloGeometryShaderApp::CreatePipeline()
 	pipelineCI.pColorBlendState = &colorBlendStateCI;
 	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
 	pipelineCI.layout = m_pipelineLayout;
-	pipelineCI.renderPass = m_renderPass;
+	pipelineCI.renderPass = renderPass;
 	pipelineCI.subpass = 0;
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCI.basePipelineIndex = 0;

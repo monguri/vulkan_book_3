@@ -12,7 +12,6 @@ public:
 	virtual bool OnSizeChanged(uint32_t width, uint32_t height) override;
 
 private:
-	VkRenderPass m_renderPass;
 	ImageObject m_depthBuffer;
 	std::vector<VkFramebuffer> m_framebuffers;
 
@@ -51,7 +50,6 @@ private:
 	float m_factor = 0.0f;
 	float m_color[4];
 
-	void PrepareRenderPass();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
 	void PrepareCommandBuffersPrimary();

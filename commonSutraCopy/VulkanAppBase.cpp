@@ -585,6 +585,72 @@ std::vector<VulkanAppBase::BufferObject> VulkanAppBase::CreateUniformBuffers(uin
 	return buffers;
 }
 
+VkRenderPass VulkanAppBase::CreateRenderPass(VkFormat colorFormat, VkFormat depthFormat, VkImageLayout layoutColor)
+{
+	std::vector<VkAttachmentDescription> attachments;
+
+	if (colorFormat == VK_FORMAT_UNDEFINED)
+	{
+		colorFormat = m_swapchain->GetSurfaceFormat().format;
+	}
+
+	VkAttachmentDescription colorTarget, depthTarget;
+	colorTarget = book_util::GetAttachmentDescription(
+		colorFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		layoutColor
+	);
+	depthTarget = book_util::GetAttachmentDescription(
+		depthFormat,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+	);
+
+	VkAttachmentReference colorRef{};
+	colorRef.attachment = 0;
+	colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depthRef{};
+	depthRef.attachment = 1;
+	depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpassDesc{};
+	subpassDesc.flags = 0;
+	subpassDesc.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDesc.inputAttachmentCount = 0;
+	subpassDesc.pInputAttachments = nullptr;
+	subpassDesc.colorAttachmentCount = 1;
+	subpassDesc.pColorAttachments = &colorRef;
+	subpassDesc.pResolveAttachments = nullptr;
+	subpassDesc.pDepthStencilAttachment = nullptr;
+	subpassDesc.preserveAttachmentCount = 0;
+	subpassDesc.pPreserveAttachments = nullptr;
+
+	attachments.push_back(colorTarget);
+	if (depthFormat != VK_FORMAT_UNDEFINED)
+	{
+		attachments.push_back(depthTarget);
+		subpassDesc.pDepthStencilAttachment = &depthRef;
+	}
+
+	VkRenderPassCreateInfo rpCI{};
+	rpCI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	rpCI.pNext = nullptr;
+	rpCI.flags = 0;
+	rpCI.attachmentCount = uint32_t(attachments.size());
+	rpCI.pAttachments = attachments.data();
+	rpCI.subpassCount = 1;
+	rpCI.pSubpasses = &subpassDesc;
+	rpCI.dependencyCount = 0;
+	rpCI.pDependencies = nullptr;
+
+	VkRenderPass renderPass = VK_NULL_HANDLE;
+	VkResult result = vkCreateRenderPass(m_device, &rpCI, nullptr, &renderPass);
+	ThrowIfFailed(result, "vkCreateRenderPass Failed.");
+
+	return renderPass;
+}
+
 // TODO:Ç±ÇÃèàóùÇÕâΩÇÃÇΩÇﬂÇ…Ç†ÇÈÇ©óùâÇ≈Ç´ÇƒÇ»Ç¢
 void VulkanAppBase::MsgLoopMinimizedWindow()
 {

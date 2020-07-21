@@ -96,6 +96,8 @@ public:
 
 	std::vector<BufferObject> CreateUniformBuffers(uint32_t bufferSize, uint32_t imageCount);
 
+	VkRenderPass CreateRenderPass(VkFormat colorFormat, VkFormat depthFormat = VK_FORMAT_UNDEFINED, VkImageLayout layoutColor = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
 private:
 	void CreateInstance();
 	void SelectGraphicsQueue();
