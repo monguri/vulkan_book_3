@@ -104,6 +104,7 @@ private:
 	void CreateDevice();
 	void CreateCommandPool();
 	void CreateDescriptorPool();
+	void PrepareImGui();
 	
 	// デバッグレポート有効化
 	void EnableDebugReport();

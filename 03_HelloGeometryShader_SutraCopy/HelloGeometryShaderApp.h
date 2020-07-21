@@ -55,7 +55,6 @@ private:
 	void PrepareCommandBuffersPrimary();
 	void PrepareTeapot();
 	void CreatePipeline();
-	void PrepareImGui();
 	void CleanupImGui();
 	void RenderImGui(const VkCommandBuffer& command);
 };
