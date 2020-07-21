@@ -102,7 +102,7 @@ int _stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 	glfwSetScrollCallback(window, MouseWheelCallback);
 	glfwSetWindowSizeCallback(window, WindowResizeCallback);
 
-	SampleMSAAApp theApp;
+	HelloGeometryShaderApp theApp;
 	glfwSetWindowUserPointer(window, &theApp);
 
 	try

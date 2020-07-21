@@ -7,7 +7,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-void SampleMSAAApp::Prepare()
+void HelloGeometryShaderApp::Prepare()
 {
 	CreateRenderPass();
 	CreateRenderPassRT();
@@ -57,7 +57,7 @@ void SampleMSAAApp::Prepare()
 	CreatePipelinePlane();
 }
 
-void SampleMSAAApp::Cleanup()
+void HelloGeometryShaderApp::Cleanup()
 {
 	DestroyModelData(m_teapot);
 	DestroyModelData(m_plane);
@@ -86,7 +86,7 @@ void SampleMSAAApp::Cleanup()
 	m_commandBuffers.clear();
 }
 
-void SampleMSAAApp::Render()
+void HelloGeometryShaderApp::Render()
 {
 	if (m_isMinimizedWindow)
 	{
@@ -241,7 +241,7 @@ void SampleMSAAApp::Render()
 	m_frameCount++;
 }
 
-void SampleMSAAApp::CreateRenderPass()
+void HelloGeometryShaderApp::CreateRenderPass()
 {
 	std::array<VkAttachmentDescription, 2> attachments;
 	VkAttachmentDescription& colorTarget = attachments[0];
@@ -306,7 +306,7 @@ void SampleMSAAApp::CreateRenderPass()
 	RegisterRenderPass("default", renderPass);
 }
 
-void SampleMSAAApp::CreateRenderPassRT()
+void HelloGeometryShaderApp::CreateRenderPassRT()
 {
 	std::array<VkAttachmentDescription, 2> attachments;
 	attachments[0] = VkAttachmentDescription{};
@@ -368,7 +368,7 @@ void SampleMSAAApp::CreateRenderPassRT()
 	RegisterRenderPass("render_target", texturePass);
 }
 
-void SampleMSAAApp::CreateRenderPassMSAA()
+void HelloGeometryShaderApp::CreateRenderPassMSAA()
 {
 	VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_4_BIT;
 	VkFormat format = m_swapchain->GetSurfaceFormat().format;
@@ -433,7 +433,7 @@ void SampleMSAAApp::CreateRenderPassMSAA()
 	RegisterRenderPass("draw_msaa", renderPass);
 }
 
-void SampleMSAAApp::PrepareFramebuffers()
+void HelloGeometryShaderApp::PrepareFramebuffers()
 {
 	uint32_t imageCount = m_swapchain->GetImageCount();
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
@@ -450,7 +450,7 @@ void SampleMSAAApp::PrepareFramebuffers()
 	}
 }
 
-void SampleMSAAApp::PrepareFramebufferMSAA()
+void HelloGeometryShaderApp::PrepareFramebufferMSAA()
 {
 	uint32_t imageCount = m_swapchain->GetImageCount();
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
@@ -463,7 +463,7 @@ void SampleMSAAApp::PrepareFramebufferMSAA()
 	m_framebufferMSAA = CreateFramebuffer(renderPass, extent.width, extent.height, uint32_t(views.size()), views.data());
 }
 
-bool SampleMSAAApp::OnSizeChanged(uint32_t width, uint32_t height)
+bool HelloGeometryShaderApp::OnSizeChanged(uint32_t width, uint32_t height)
 {
 	bool result = VulkanAppBase::OnSizeChanged(width, height);
 	if (result)
@@ -482,7 +482,7 @@ bool SampleMSAAApp::OnSizeChanged(uint32_t width, uint32_t height)
 	return result;
 }
 
-void SampleMSAAApp::PrepareTeapot()
+void HelloGeometryShaderApp::PrepareTeapot()
 {
 	// ステージ用のVBとIB、ターゲットのVBとIBの用意
 	uint32_t bufferSizeVB = uint32_t(sizeof(TeapotModel::TeapotVerticesPN));
@@ -603,7 +603,7 @@ void SampleMSAAApp::PrepareTeapot()
 	m_layoutTeapot = layout;
 }
 
-void SampleMSAAApp::PreparePlane()
+void HelloGeometryShaderApp::PreparePlane()
 {
 	// UVは逆にする
 	VertexPT vertices[] = {
@@ -747,7 +747,7 @@ void SampleMSAAApp::PreparePlane()
 	m_layoutPlane = layout;
 }
 
-void SampleMSAAApp::CreatePipelineTeapot()
+void HelloGeometryShaderApp::CreatePipelineTeapot()
 {
 	// Teapot用パイプライン
 	uint32_t stride = uint32_t(sizeof(TeapotModel::Vertex));
@@ -872,7 +872,7 @@ void SampleMSAAApp::CreatePipelineTeapot()
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
-void SampleMSAAApp::CreatePipelinePlane()
+void HelloGeometryShaderApp::CreatePipelinePlane()
 {
 	// Plane用パイプライン
 	uint32_t stride = uint32_t(sizeof(VertexPT));
@@ -1001,7 +1001,7 @@ void SampleMSAAApp::CreatePipelinePlane()
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
-void SampleMSAAApp::PrepareRenderTexture()
+void HelloGeometryShaderApp::PrepareRenderTexture()
 {
 	// 描画先テクスチャの準備
 	ImageObject colorTarget;
@@ -1118,7 +1118,7 @@ void SampleMSAAApp::PrepareRenderTexture()
 	m_renderTextureFB = CreateFramebuffer(renderPass, TextureWidth, TextureHeight, uint32_t(views.size()), views.data());
 }
 
-void SampleMSAAApp::PrepareMsaaTexture()
+void HelloGeometryShaderApp::PrepareMsaaTexture()
 {
 	// カラー
 	VkFormat colorFormat = m_swapchain->GetSurfaceFormat().format;
@@ -1172,7 +1172,7 @@ void SampleMSAAApp::PrepareMsaaTexture()
 	vkGetPhysicalDeviceProperties(m_physicalDevice, &physProps);
 }
 
-void SampleMSAAApp::RenderToTexture(const VkCommandBuffer& command)
+void HelloGeometryShaderApp::RenderToTexture(const VkCommandBuffer& command)
 {
 	std::array<VkClearValue, 2> clearValue = {
 		{
@@ -1234,7 +1234,7 @@ void SampleMSAAApp::RenderToTexture(const VkCommandBuffer& command)
 	vkCmdEndRenderPass(command);
 }
 
-void SampleMSAAApp::RenderToMSAABuffer(const VkCommandBuffer& command)
+void HelloGeometryShaderApp::RenderToMSAABuffer(const VkCommandBuffer& command)
 {
 	std::array<VkClearValue, 2> clearValue = {
 		{
@@ -1308,7 +1308,7 @@ void SampleMSAAApp::RenderToMSAABuffer(const VkCommandBuffer& command)
 	vkCmdEndRenderPass(command);
 }
 
-void SampleMSAAApp::DestroyModelData(ModelData& model)
+void HelloGeometryShaderApp::DestroyModelData(ModelData& model)
 {
 	for (const BufferObject& bufObj : { model.vertexBuffer, model.indexBuffer })
 	{

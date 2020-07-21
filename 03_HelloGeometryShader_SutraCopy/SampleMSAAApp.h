@@ -2,7 +2,7 @@
 #include "VulkanAppBase.h"
 #include <glm/glm.hpp>
 
-class SampleMSAAApp : public VulkanAppBase
+class HelloGeometryShaderApp : public VulkanAppBase
 {
 public:
 	virtual void Prepare() override;
