@@ -1,4 +1,4 @@
-#include "SampleMSAAApp.h"
+#include "HelloGeometryShaderApp.h"
 #include "VulkanBookUtil.h"
 #include "TeapotModel.h"
 
