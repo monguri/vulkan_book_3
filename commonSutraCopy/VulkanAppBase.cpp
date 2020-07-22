@@ -523,7 +523,26 @@ void VulkanAppBase::DestroyFramebuffers(uint32_t count, VkFramebuffer* framebuff
 	}
 }
 
-VkCommandBuffer VulkanAppBase::CreateCommandBuffer()
+VkFence VulkanAppBase::CreateFence()
+{
+	VkFenceCreateInfo fenceCI{};
+	fenceCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceCI.pNext = nullptr;
+	fenceCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+	VkFence fence = VK_NULL_HANDLE;
+	VkResult result = vkCreateFence(m_device, &fenceCI, nullptr, &fence);
+	ThrowIfFailed(result, "vkCreateFence Failed.");
+
+	return fence;
+}
+
+void VulkanAppBase::DestroyFence(VkFence fence)
+{
+	vkDestroyFence(m_device, fence, nullptr);
+}
+
+VkCommandBuffer VulkanAppBase::CreateCommandBuffer(bool bBegin)
 {
 	VkCommandBuffer command;
 
@@ -536,11 +555,14 @@ VkCommandBuffer VulkanAppBase::CreateCommandBuffer()
 	VkResult result = vkAllocateCommandBuffers(m_device, &commandAI, &command);
 	ThrowIfFailed(result, "vkAllocateCommandBuffers Failed.");
 
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	if (bBegin)
+	{
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-	result = vkBeginCommandBuffer(command, &beginInfo);
-	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
+		result = vkBeginCommandBuffer(command, &beginInfo);
+		ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
+	}
 
 	return command;
 }
@@ -576,6 +598,11 @@ void VulkanAppBase::FinishCommandBuffer(VkCommandBuffer command)
 	ThrowIfFailed(result, "vkWaitForFences Failed.");
 
 	vkDestroyFence(m_device, fence, nullptr);
+}
+
+void VulkanAppBase::DestroyCommandBuffer(VkCommandBuffer command)
+{
+	vkFreeCommandBuffers(m_device, m_commandPool, 1, &command);
 }
 
 std::vector<VulkanAppBase::BufferObject> VulkanAppBase::CreateUniformBuffers(uint32_t bufferSize, uint32_t imageCount)

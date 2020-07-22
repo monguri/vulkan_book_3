@@ -88,11 +88,15 @@ public:
 	BufferObject CreateBuffer(uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props);
 	ImageObject CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage);
 	VkFramebuffer CreateFramebuffer(VkRenderPass renderPass, uint32_t width, uint32_t height, uint32_t viewCount, VkImageView* views);
+	VkFence CreateFence();
+
 	void DestroyBuffer(const BufferObject& bufferObj);
 	void DestroyImage(const ImageObject& imageObj);
 	void DestroyFramebuffers(uint32_t count, VkFramebuffer* framebuffers);
-	VkCommandBuffer CreateCommandBuffer();
+	void DestroyFence(VkFence fence);
+	VkCommandBuffer CreateCommandBuffer(bool bBegin = true);
 	void FinishCommandBuffer(VkCommandBuffer command);
+	void DestroyCommandBuffer(VkCommandBuffer command);
 
 	std::vector<BufferObject> CreateUniformBuffers(uint32_t bufferSize, uint32_t imageCount);
 

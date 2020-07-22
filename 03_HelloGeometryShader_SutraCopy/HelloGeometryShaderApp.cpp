@@ -16,7 +16,14 @@ void HelloGeometryShaderApp::Prepare()
 
 	PrepareFramebuffers();
 
-	PrepareCommandBuffersPrimary();
+	uint32_t imageCount = m_swapchain->GetImageCount();
+	m_commandBuffers.resize(imageCount);
+
+	for (FrameCommandBuffer& c : m_commandBuffers)
+	{
+		c.fence = CreateFence();
+		c.commandBuffer = CreateCommandBuffer(false); // コマンドバッファは開始状態にしない
+	}
 
 	PrepareTeapot();
 
@@ -53,10 +60,10 @@ void HelloGeometryShaderApp::Cleanup()
 	DestroyFramebuffers(count, m_framebuffers.data());
 	m_framebuffers.clear();
 
-	for (const CommandBuffer& c : m_commandBuffers)
+	for (const FrameCommandBuffer& c : m_commandBuffers)
 	{
-		vkDestroyFence(m_device, c.fence, nullptr);
-		vkFreeCommandBuffers(m_device, m_commandPool, 1, &c.command);
+		DestroyCommandBuffer(c.commandBuffer);
+		DestroyFence(c.fence);
 	}
 	m_commandBuffers.clear();
 }
@@ -131,11 +138,11 @@ void HelloGeometryShaderApp::Render()
 		vkUnmapMemory(m_device, ubo.memory);
 	}
 
-	const VkCommandBuffer& command = m_commandBuffers[imageIndex].command;
 	const VkFence& fence = m_commandBuffers[imageIndex].fence;
 	result = vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX);
 	ThrowIfFailed(result, "vkWaitForFences Failed.");
 
+	const VkCommandBuffer& command = m_commandBuffers[imageIndex].commandBuffer;
 	result = vkBeginCommandBuffer(command, &commandBI);
 	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
 	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
@@ -259,32 +266,6 @@ void HelloGeometryShaderApp::PrepareFramebuffers()
 		views.push_back(m_depthBuffer.view);
 
 		m_framebuffers[i] = CreateFramebuffer(renderPass, extent.width, extent.height, uint32_t(views.size()), views.data());
-	}
-}
-
-void HelloGeometryShaderApp::PrepareCommandBuffersPrimary()
-{
-	uint32_t imageCount = m_swapchain->GetImageCount();
-	m_commandBuffers.resize(imageCount);
-
-	VkFenceCreateInfo fenceCI{};
-	fenceCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceCI.pNext = nullptr;
-	fenceCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.pNext = nullptr;
-	allocInfo.commandPool = m_commandPool;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = 1;
-
-	for (uint32_t i = 0; i < imageCount; i++)
-	{
-		VkResult result = vkAllocateCommandBuffers(m_device, &allocInfo, &m_commandBuffers[i].command);
-		ThrowIfFailed(result, "vkAllocateCommandBuffers Failed.");
-		result = vkCreateFence(m_device, &fenceCI, nullptr, &m_commandBuffers[i].fence);
-		ThrowIfFailed(result, "vkCreateFence Failed.");
 	}
 }
 
