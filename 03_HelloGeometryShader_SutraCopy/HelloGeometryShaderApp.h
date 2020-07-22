@@ -1,6 +1,7 @@
 #pragma once
 #include "VulkanAppBase.h"
 #include <glm/glm.hpp>
+#include "Camera.h"
 
 class HelloGeometryShaderApp : public VulkanAppBase
 {
@@ -43,6 +44,7 @@ private:
 		glm::vec4 cameraPos;
 	};
 
+	Camera m_camera;
 	std::vector<BufferObject> m_uniformBuffers;
 
 	float m_factor = 0.0f;

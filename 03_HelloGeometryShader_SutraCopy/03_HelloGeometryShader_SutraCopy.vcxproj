@@ -127,6 +127,7 @@
     <ClCompile Include="..\common\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\common\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\common\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="HelloGeometryShaderApp.cpp" />
   </ItemGroup>
@@ -143,6 +144,7 @@
     <ClInclude Include="..\common\imgui\imstb_rectpack.h" />
     <ClInclude Include="..\common\imgui\imstb_textedit.h" />
     <ClInclude Include="..\common\imgui\imstb_truetype.h" />
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="HelloGeometryShaderApp.h" />
   </ItemGroup>
   <ItemGroup>
