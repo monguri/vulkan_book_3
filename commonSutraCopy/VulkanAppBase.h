@@ -69,7 +69,12 @@ public:
 	virtual void Cleanup() {};
 	virtual void Render() = 0;
 
+	VkPipelineLayout GetPipelineLayout(const std::string& name) { return m_pipelineLayoutStore->Get(name); }
+	VkDescriptorSetLayout GetDescriptorSetLayout(const std::string& name) { return m_descriptorSetLayoutStore->Get(name); }
 	VkRenderPass GetRenderPass(const std::string& name) { return m_renderPassStore->Get(name); }
+
+	void RegisterLayout(const std::string& name, const VkPipelineLayout& layout) { m_pipelineLayoutStore->Register(name, layout); }
+	void RegisterLayout(const std::string& name, const VkDescriptorSetLayout& layout) { m_descriptorSetLayoutStore->Register(name, layout); }
 	void RegisterRenderPass(const std::string& name, const VkRenderPass& renderPass) { m_renderPassStore->Register(name, renderPass); }
 
 	struct BufferObject

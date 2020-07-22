@@ -9,6 +9,8 @@
 
 void HelloGeometryShaderApp::Prepare()
 {
+	CreateSampleLayouts();
+
 	VkRenderPass renderPass = CreateRenderPass(m_swapchain->GetSurfaceFormat().format, VK_FORMAT_D32_SFLOAT);
 	RegisterRenderPass("default", renderPass);
 
@@ -27,17 +29,6 @@ void HelloGeometryShaderApp::Prepare()
 
 	PrepareTeapot();
 
-	VkPipelineLayoutCreateInfo pipelineLayoutCI{};
-	pipelineLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutCI.pNext = nullptr;
-	pipelineLayoutCI.flags = 0;
-	pipelineLayoutCI.setLayoutCount = 1;
-	pipelineLayoutCI.pSetLayouts = &m_descriptorSetLayout;
-	pipelineLayoutCI.pushConstantRangeCount = 0;
-	pipelineLayoutCI.pPushConstantRanges = nullptr;
-	VkResult result = vkCreatePipelineLayout(m_device, &pipelineLayoutCI, nullptr, &m_pipelineLayout);
-	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
-
 	CreatePipeline();
 }
 
@@ -52,8 +43,6 @@ void HelloGeometryShaderApp::Cleanup()
 	m_descriptorSets.clear();
 
 	vkDestroyPipeline(m_device, m_pipeline, nullptr);
-	vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
-	vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
 
 	DestroyImage(m_depthBuffer);
 	uint32_t count = uint32_t(m_framebuffers.size());
@@ -161,7 +150,8 @@ void HelloGeometryShaderApp::Render()
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
 	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
+	const VkPipelineLayout& layout = GetPipelineLayout("u1");
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
 	vkCmdBindIndexBuffer(command, m_teapot.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.vertexBuffer.buffer, offsets);
@@ -311,37 +301,21 @@ void HelloGeometryShaderApp::PrepareTeapot()
 	DestroyBuffer(stageVB);
 	DestroyBuffer(stageIB);
 
-	// ディスクリプタセットレイアウト
-	VkDescriptorSetLayoutBinding descSetLayoutBindings[1];
-
-	VkDescriptorSetLayoutBinding bindingUBO{};
-	bindingUBO.binding = 0;
-	bindingUBO.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindingUBO.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindingUBO.descriptorCount = 1;
-	descSetLayoutBindings[0] = bindingUBO;
-
-	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
-	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descSetLayoutCI.pNext = nullptr;
-	descSetLayoutCI.bindingCount = _countof(descSetLayoutBindings);
-	descSetLayoutCI.pBindings = descSetLayoutBindings;
-	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &m_descriptorSetLayout);
-	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
-
 	// ディスクリプタセット
+	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
+
 	VkDescriptorSetAllocateInfo descriptorSetAI{};
 	descriptorSetAI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	descriptorSetAI.pNext = nullptr;
 	descriptorSetAI.descriptorPool = m_descriptorPool;
 	descriptorSetAI.descriptorSetCount = 1;
-	descriptorSetAI.pSetLayouts = &m_descriptorSetLayout;
+	descriptorSetAI.pSetLayouts = &dsLayout;
 
 	uint32_t imageCount = m_swapchain->GetImageCount();
 	for (uint32_t i = 0; i < imageCount; ++i)
 	{
 		VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-		result = vkAllocateDescriptorSets(m_device, &descriptorSetAI, &descriptorSet);
+		VkResult result = vkAllocateDescriptorSets(m_device, &descriptorSetAI, &descriptorSet);
 		ThrowIfFailed(result, "vkAllocateDescriptorSets Failed.");
 
 		m_descriptorSets.push_back(descriptorSet);
@@ -487,6 +461,8 @@ void HelloGeometryShaderApp::CreatePipeline()
 	VkRenderPass renderPass = GetRenderPass("default");
 
 	// パイプライン構築
+	const VkPipelineLayout& layout = GetPipelineLayout("u1");
+
 	VkGraphicsPipelineCreateInfo pipelineCI{};
 	pipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCI.pNext = nullptr;
@@ -501,7 +477,7 @@ void HelloGeometryShaderApp::CreatePipeline()
 	pipelineCI.pDepthStencilState = &dsState;
 	pipelineCI.pColorBlendState = &colorBlendStateCI;
 	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
-	pipelineCI.layout = m_pipelineLayout;
+	pipelineCI.layout = layout;
 	pipelineCI.renderPass = renderPass;
 	pipelineCI.subpass = 0;
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
@@ -510,5 +486,46 @@ void HelloGeometryShaderApp::CreatePipeline()
 	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
 
 	book_util::DestroyShaderModules(m_device, shaderStages);
+}
+
+void HelloGeometryShaderApp::CreateSampleLayouts()
+{
+	// ディスクリプタセットレイアウト
+	VkDescriptorSetLayoutBinding descSetLayoutBindings[1];
+
+	VkDescriptorSetLayoutBinding bindingUBO{};
+	bindingUBO.binding = 0;
+	bindingUBO.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	bindingUBO.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindingUBO.descriptorCount = 1;
+	descSetLayoutBindings[0] = bindingUBO;
+
+	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
+	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descSetLayoutCI.pNext = nullptr;
+	descSetLayoutCI.bindingCount = _countof(descSetLayoutBindings);
+	descSetLayoutCI.pBindings = descSetLayoutBindings;
+
+	VkDescriptorSetLayout dsLayout = VK_NULL_HANDLE;
+
+	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
+	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
+	RegisterLayout("u1", dsLayout);
+	dsLayout = GetDescriptorSetLayout("u1");
+
+	// パイプラインレイアウト
+	VkPipelineLayoutCreateInfo pipelineLayoutCI{};
+	pipelineLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutCI.pNext = nullptr;
+	pipelineLayoutCI.flags = 0;
+	pipelineLayoutCI.setLayoutCount = 1;
+	pipelineLayoutCI.pSetLayouts = &dsLayout;
+	pipelineLayoutCI.pushConstantRangeCount = 0;
+	pipelineLayoutCI.pPushConstantRanges = nullptr;
+
+	VkPipelineLayout layout = VK_NULL_HANDLE;
+	result = vkCreatePipelineLayout(m_device, &pipelineLayoutCI, nullptr, &layout);
+	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
+	RegisterLayout("u1", layout);
 }
 

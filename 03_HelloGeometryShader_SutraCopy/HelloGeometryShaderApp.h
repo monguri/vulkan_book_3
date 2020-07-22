@@ -22,9 +22,7 @@ private:
 	};
 
 	std::vector<FrameCommandBuffer> m_commandBuffers;
-	VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSet> m_descriptorSets;
-	VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
 	VkPipeline m_pipeline = nullptr;
 
 	struct ModelData
@@ -50,6 +48,7 @@ private:
 	float m_factor = 0.0f;
 	float m_color[4];
 
+	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
 	void PrepareTeapot();
