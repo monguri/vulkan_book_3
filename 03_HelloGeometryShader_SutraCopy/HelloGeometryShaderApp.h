@@ -11,6 +11,9 @@ public:
 	virtual void Render() override;
 
 	virtual bool OnSizeChanged(uint32_t width, uint32_t height) override;
+	virtual bool OnMouseButtonDown(int button) override;
+	virtual bool OnMouseButtonUp(int button) override;
+	virtual bool OnMouseMove(int dx, int dy) override;
 
 private:
 	ImageObject m_depthBuffer;

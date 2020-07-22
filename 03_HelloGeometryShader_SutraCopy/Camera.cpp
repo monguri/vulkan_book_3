@@ -1,12 +1,14 @@
 #include "Camera.h"
 
-
-
-Camera::Camera()
+void Camera::OnMouseButtonDown(int buttonType)
 {
 }
 
-
-Camera::~Camera()
+void Camera::OnMouseButtonUp()
 {
 }
+
+void Camera::OnMouseMove(int dx, int dy)
+{
+}
+

@@ -55,9 +55,9 @@ class VulkanAppBase
 public:
 
 	virtual bool OnSizeChanged(uint32_t width, uint32_t height);
-	virtual void OnMouseButtonDown(int button) {}
-	virtual void OnMouseButtonUp(int button) {}
-	virtual void OnMouseMove(int dx, int dy) {}
+	virtual bool OnMouseButtonDown(int button);
+	virtual bool OnMouseButtonUp(int button);
+	virtual bool OnMouseMove(int dx, int dy);
 
 	uint32_t GetMemoryTypeIndex(uint32_t requestBits, VkMemoryPropertyFlags requestProps) const;
 	void SwitchFullscreen(GLFWwindow* window);

@@ -51,6 +51,22 @@ bool VulkanAppBase::OnSizeChanged(uint32_t width, uint32_t height)
 	return true;
 }
 
+bool VulkanAppBase::OnMouseButtonDown(int button)
+{
+	return ImGui::GetIO().WantCaptureMouse;
+}
+
+bool VulkanAppBase::OnMouseButtonUp(int button)
+{
+	return ImGui::GetIO().WantCaptureMouse;
+}
+
+bool VulkanAppBase::OnMouseMove(int dx, int dy)
+{
+	return ImGui::GetIO().WantCaptureMouse;
+}
+
+
 uint32_t VulkanAppBase::GetMemoryTypeIndex(uint32_t requestBits, VkMemoryPropertyFlags requestProps) const
 {
 	uint32_t result = ~0u;

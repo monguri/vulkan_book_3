@@ -2,7 +2,8 @@
 class Camera
 {
 public:
-	Camera();
-	~Camera();
+	void OnMouseButtonDown(int buttonType);
+	void OnMouseButtonUp();
+	void OnMouseMove(int dx, int dy);
 };
 

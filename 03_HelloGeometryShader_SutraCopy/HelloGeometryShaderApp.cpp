@@ -57,6 +57,40 @@ void HelloGeometryShaderApp::Cleanup()
 	m_commandBuffers.clear();
 }
 
+bool HelloGeometryShaderApp::OnMouseButtonDown(int button)
+{
+	if (VulkanAppBase::OnMouseButtonDown(button))
+	{
+		return true;
+	}
+
+	m_camera.OnMouseButtonDown(button);
+	return true;
+}
+
+bool HelloGeometryShaderApp::OnMouseButtonUp(int button)
+{
+	if (VulkanAppBase::OnMouseButtonUp(button))
+	{
+		return true;
+	}
+
+	m_camera.OnMouseButtonUp();
+	return true;
+}
+
+bool HelloGeometryShaderApp::OnMouseMove(int dx, int dy)
+{
+	if (VulkanAppBase::OnMouseMove(dx, dy))
+	{
+		return true;
+	}
+
+	m_camera.OnMouseMove(dx, dy);
+	return true;
+}
+
+
 void HelloGeometryShaderApp::Render()
 {
 	if (m_isMinimizedWindow)
