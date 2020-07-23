@@ -105,7 +105,61 @@ public:
 
 	std::vector<BufferObject> CreateUniformBuffers(uint32_t bufferSize, uint32_t imageCount);
 
+	// ホストから見えるメモリ領域にデータを書き込む.以下バッファを対象に使用.
+	// - ステージングバッファ
+	// - ユニフォームバッファ
+	void WriteToHostVisibleMemory(VkDeviceMemory memory, uint32_t size, const void* pData);
+
 	VkRenderPass CreateRenderPass(VkFormat colorFormat, VkFormat depthFormat = VK_FORMAT_UNDEFINED, VkImageLayout layoutColor = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+	struct ModelData
+	{
+		BufferObject resVertexBuffer;
+		BufferObject resIndexBuffer;
+		uint32_t vertexCount;
+		uint32_t indexCount;
+	};
+
+	template<class T>
+	ModelData CreateSimpleModel(const std::vector<T>& vertices, const std::vector<uint32_t>& indices)
+	{
+		ModelData model;
+
+		VkMemoryPropertyFlags srcMemoryProps = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		VkMemoryPropertyFlags dstMemoryProps = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		VkBufferUsageFlags usageVB = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		VkBufferUsageFlags usageIB = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		VkBufferCopy copyVB{}, copyIB{};
+		copyVB.srcOffset = 0;
+		copyVB.dstOffset = 0;
+		copyIB.srcOffset = 0;
+		copyIB.dstOffset = 0;
+
+		uint32_t bufferSize = uint32_t(sizeof(T) * vertices.size());
+		const BufferObject& uploadVB = CreateBuffer(bufferSize, usageVB, srcMemoryProps);
+		model.resVertexBuffer = CreateBuffer(bufferSize, usageVB, dstMemoryProps);
+		WriteToHostVisibleMemory(uploadVB.memory, bufferSize, vertices.data());
+		model.vertexCount = uint32_t(vertices.size());
+		copyVB.size = bufferSize;
+
+		bufferSize = uint32_t(sizeof(uint32_t) * indices.size());
+		const BufferObject& uploadIB = CreateBuffer(bufferSize, usageIB, srcMemoryProps);
+		model.resIndexBuffer = CreateBuffer(bufferSize, usageIB, dstMemoryProps);
+		WriteToHostVisibleMemory(uploadIB.memory, bufferSize, indices.data());
+		model.indexCount = uint32_t(indices.size());
+		copyIB.size = bufferSize;
+
+		const VkCommandBuffer& command = CreateCommandBuffer();
+		vkCmdCopyBuffer(command, uploadVB.buffer, model.resVertexBuffer.buffer, 1, &copyVB);
+		vkCmdCopyBuffer(command, uploadIB.buffer, model.resIndexBuffer.buffer, 1, &copyIB);
+		FinishCommandBuffer(command);
+
+		vkFreeCommandBuffers(m_device, m_commandPool, 1, &command);
+		DestroyBuffer(uploadVB);
+		DestroyBuffer(uploadIB);
+
+		return model;
+	}
 
 private:
 	void CreateInstance();

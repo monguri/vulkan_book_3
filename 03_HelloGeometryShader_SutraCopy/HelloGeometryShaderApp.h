@@ -31,13 +31,6 @@ private:
 	std::vector<VkDescriptorSet> m_descriptorSets;
 	VkPipeline m_pipeline = nullptr;
 
-	struct ModelData
-	{
-		BufferObject vertexBuffer;
-		BufferObject indexBuffer;
-		uint32_t vertexCount;
-		uint32_t indexCount;
-	};
 	ModelData m_teapot;
 
 	struct ShaderParameters

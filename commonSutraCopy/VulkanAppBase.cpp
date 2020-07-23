@@ -636,6 +636,14 @@ std::vector<VulkanAppBase::BufferObject> VulkanAppBase::CreateUniformBuffers(uin
 	return buffers;
 }
 
+void VulkanAppBase::WriteToHostVisibleMemory(VkDeviceMemory memory, uint32_t size, const void* pData)
+{
+	void* p = nullptr;
+	vkMapMemory(m_device, memory, 0, VK_WHOLE_SIZE, 0, &p);
+	memcpy(p, pData, size);
+	vkUnmapMemory(m_device, memory);
+}
+
 VkRenderPass VulkanAppBase::CreateRenderPass(VkFormat colorFormat, VkFormat depthFormat, VkImageLayout layoutColor)
 {
 	std::vector<VkAttachmentDescription> attachments;

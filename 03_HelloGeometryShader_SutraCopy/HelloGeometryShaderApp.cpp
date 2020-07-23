@@ -48,8 +48,8 @@ void HelloGeometryShaderApp::Cleanup()
 	}
 	m_uniformBuffers.clear();
 
-	DestroyBuffer(m_teapot.vertexBuffer);
-	DestroyBuffer(m_teapot.indexBuffer);
+	DestroyBuffer(m_teapot.resVertexBuffer);
+	DestroyBuffer(m_teapot.resIndexBuffer);
 
 	vkFreeDescriptorSets(m_device, m_descriptorPool, uint32_t(m_descriptorSets.size()), m_descriptorSets.data());
 	m_descriptorSets.clear();
@@ -192,9 +192,9 @@ void HelloGeometryShaderApp::Render()
 	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 	const VkPipelineLayout& layout = GetPipelineLayout("u1");
 	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
-	vkCmdBindIndexBuffer(command, m_teapot.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.vertexBuffer.buffer, offsets);
+	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
 	vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
 
 	RenderHUD(command);
@@ -294,45 +294,9 @@ bool HelloGeometryShaderApp::OnSizeChanged(uint32_t width, uint32_t height)
 
 void HelloGeometryShaderApp::PrepareTeapot()
 {
-	// ステージ用のVBとIB、ターゲットのVBとIBの用意
-	uint32_t bufferSizeVB = uint32_t(sizeof(TeapotModel::TeapotVerticesPN));
-	VkBufferUsageFlags usageVB = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	VkMemoryPropertyFlags srcMemoryProps = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	VkMemoryPropertyFlags dstMemoryProps = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	const BufferObject& stageVB = CreateBuffer(bufferSizeVB, usageVB | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, srcMemoryProps);
-	const BufferObject& targetVB = CreateBuffer(bufferSizeVB, usageVB | VK_BUFFER_USAGE_TRANSFER_DST_BIT, dstMemoryProps);
-
-	uint32_t bufferSizeIB = uint32_t(sizeof(TeapotModel::TeapotIndices));
-	VkBufferUsageFlags usageIB = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	const BufferObject& stageIB = CreateBuffer(bufferSizeIB, usageIB | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, srcMemoryProps);
-	const BufferObject& targetIB = CreateBuffer(bufferSizeIB, usageIB | VK_BUFFER_USAGE_TRANSFER_DST_BIT, dstMemoryProps);
-
-	// ステージ用のVBとIBにデータをコピー
-	void* p = nullptr;
-	vkMapMemory(m_device, stageVB.memory, 0, VK_WHOLE_SIZE, 0, &p);
-	memcpy(p, TeapotModel::TeapotVerticesPN, bufferSizeVB);
-	vkUnmapMemory(m_device, stageVB.memory);
-	vkMapMemory(m_device, stageIB.memory, 0, VK_WHOLE_SIZE, 0, &p);
-	memcpy(p, TeapotModel::TeapotIndices, bufferSizeIB);
-	vkUnmapMemory(m_device, stageIB.memory);
-
-	// ターゲットのVBとIBにデータをコピーするコマンドの実行
-	VkCommandBuffer command = CreateCommandBuffer();
-	VkBufferCopy copyRegionVB{}, copyRegionIB{};
-	copyRegionVB.size = bufferSizeVB;
-	copyRegionIB.size = bufferSizeIB;
-	vkCmdCopyBuffer(command, stageVB.buffer, targetVB.buffer, 1, &copyRegionVB);
-	vkCmdCopyBuffer(command, stageIB.buffer, targetIB.buffer, 1, &copyRegionIB);
-	FinishCommandBuffer(command);
-	vkFreeCommandBuffers(m_device, m_commandPool, 1, &command);
-
-	m_teapot.vertexBuffer = targetVB;
-	m_teapot.indexBuffer = targetIB;
-	m_teapot.indexCount = _countof(TeapotModel::TeapotIndices);
-	m_teapot.vertexCount = _countof(TeapotModel::TeapotVerticesPN);
-
-	DestroyBuffer(stageVB);
-	DestroyBuffer(stageIB);
+	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
+	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
+	m_teapot = CreateSimpleModel(vertices, indices);
 
 	// ディスクリプタセット
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
