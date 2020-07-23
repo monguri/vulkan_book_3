@@ -13,5 +13,40 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="ソース ファイル\imgui">
+      <UniqueIdentifier>{bb296110-f09c-47d1-b9ef-7ac30713d1b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\imgui">
+      <UniqueIdentifier>{a4dcd3e0-ffe8-4e43-8582-32154b4f0833}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{70d94aa7-f6af-4480-9d4a-72b6b8e3e175}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\drawNormalFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\drawNormalGS.geom">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\drawNormalVS.vert">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\flatFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\flatGS.geom">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\flatVS.vert">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\shaderFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\shaderVS.vert">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
 </Project>
