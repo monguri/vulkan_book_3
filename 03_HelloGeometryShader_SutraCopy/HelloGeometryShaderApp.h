@@ -29,9 +29,7 @@ private:
 
 	std::vector<FrameCommandBuffer> m_commandBuffers;
 	std::vector<VkDescriptorSet> m_descriptorSets;
-	VkPipeline m_pipeline = nullptr;
-
-	ModelData m_teapot;
+	std::unordered_map<std::string, VkPipeline> m_pipelines;
 
 	struct ShaderParameters
 	{
@@ -42,10 +40,11 @@ private:
 	};
 
 	Camera m_camera;
+	ModelData m_teapot;
 	std::vector<BufferObject> m_uniformBuffers;
 
-	float m_factor = 0.0f;
-	float m_color[4];
+	const std::string FlatShaderPipeline = "flatShade";
+	const std::string smoothShaderPipeline = "smoothShade";
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
@@ -53,5 +52,12 @@ private:
 	void PrepareTeapot();
 	void CreatePipeline();
 	void RenderHUD(const VkCommandBuffer& command);
+
+	enum DrawMode
+	{
+		DrawMode_Flat,
+		DrawMode_NormalVector,
+	};
+	DrawMode m_mode = DrawMode_Flat;
 };
 

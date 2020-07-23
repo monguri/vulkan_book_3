@@ -54,7 +54,11 @@ void HelloGeometryShaderApp::Cleanup()
 	vkFreeDescriptorSets(m_device, m_descriptorPool, uint32_t(m_descriptorSets.size()), m_descriptorSets.data());
 	m_descriptorSets.clear();
 
-	vkDestroyPipeline(m_device, m_pipeline, nullptr);
+	for (auto& v : m_pipelines)
+	{
+		vkDestroyPipeline(m_device, v.second, nullptr);
+	}
+	m_pipelines.clear();
 
 	DestroyImage(m_depthBuffer);
 	uint32_t count = uint32_t(m_framebuffers.size());
@@ -188,7 +192,7 @@ void HelloGeometryShaderApp::Render()
 	vkCmdSetScissor(command, 0, 1, &scissor);
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
-	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[smoothShaderPipeline]);
 	const VkPipelineLayout& layout = GetPipelineLayout("u1");
 	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
 	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -231,15 +235,8 @@ void HelloGeometryShaderApp::RenderHUD(const VkCommandBuffer& command)
 
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
-	ImGui::Text("Hello, ImGui world");
-	ImGui::Text("Framerate(avg) %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
-	if (ImGui::Button("Button"))
-	{
-		// ボタンが押下されたときの処理.
-	}
-	ImGui::SliderFloat("Factor", &m_factor, 0.0f, 100.0f);
-	ImGui::ColorPicker4("Color", m_color);
+	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
+	ImGui::Combo("Mode", (int*)&m_mode, "Flat\0NormalVector\0\0");
 	ImGui::End();
 
 	ImGui::Render();
@@ -478,10 +475,13 @@ void HelloGeometryShaderApp::CreatePipeline()
 	pipelineCI.subpass = 0;
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCI.basePipelineIndex = 0;
-	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_pipeline);
+
+	VkPipeline pipeline;
+	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
 	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
 
 	book_util::DestroyShaderModules(m_device, shaderStages);
+	m_pipelines[smoothShaderPipeline] = pipeline;
 }
 
 void HelloGeometryShaderApp::CreateSampleLayouts()
