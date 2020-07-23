@@ -44,7 +44,7 @@ private:
 	std::vector<BufferObject> m_uniformBuffers;
 
 	const std::string FlatShaderPipeline = "flatShade";
-	const std::string smoothShaderPipeline = "smoothShade";
+	const std::string SmoothShaderPipeline = "smoothShade";
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
@@ -55,7 +55,7 @@ private:
 
 	enum DrawMode
 	{
-		DrawMode_Flat,
+		DrawMode_Flat, // = 0
 		DrawMode_NormalVector,
 	};
 	DrawMode m_mode = DrawMode_Flat;

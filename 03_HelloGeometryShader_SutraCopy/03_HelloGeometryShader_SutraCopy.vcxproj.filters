@@ -112,5 +112,14 @@
     <CustomBuild Include="Shader\shaderVS.vert">
       <Filter>Shader</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shader\flatFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\flatVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\flatGS.geom">
+      <Filter>Shader</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

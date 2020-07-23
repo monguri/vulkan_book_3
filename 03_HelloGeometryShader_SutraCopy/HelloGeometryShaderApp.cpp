@@ -192,13 +192,34 @@ void HelloGeometryShaderApp::Render()
 	vkCmdSetScissor(command, 0, 1, &scissor);
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
-	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[smoothShaderPipeline]);
-	const VkPipelineLayout& layout = GetPipelineLayout("u1");
-	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
-	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
-	vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
+	switch (m_mode)
+	{
+		case DrawMode_Flat:
+		{
+			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[FlatShaderPipeline]);
+			const VkPipelineLayout& layout = GetPipelineLayout("u1");
+			vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
+			vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+			VkDeviceSize offsets[] = {0};
+			vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
+			vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
+		}
+			break;
+		case DrawMode_NormalVector:
+		{
+			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[SmoothShaderPipeline]);
+			const VkPipelineLayout& layout = GetPipelineLayout("u1");
+			vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
+			vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+			VkDeviceSize offsets[] = {0};
+			vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
+			vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
+		}
+			break;
+		default:
+			assert(false);
+			break;
+	}
 
 	RenderHUD(command);
 
@@ -428,13 +449,6 @@ void HelloGeometryShaderApp::CreatePipeline()
 	viewportCI.scissorCount = 1;
 	viewportCI.pScissors = &scissor;
 
-	// シェーダのロード
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-	{
-		book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-		book_util::LoadShader(m_device, "shaderFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
-	};
-
 	const VkPipelineRasterizationStateCreateInfo& rasterizerState = book_util::GetDefaultRasterizerState();
 
 	const VkPipelineDepthStencilStateCreateInfo& dsState = book_util::GetDefaultDepthStencilState();
@@ -459,8 +473,6 @@ void HelloGeometryShaderApp::CreatePipeline()
 	VkGraphicsPipelineCreateInfo pipelineCI{};
 	pipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCI.pNext = nullptr;
-	pipelineCI.stageCount = uint32_t(shaderStages.size());
-	pipelineCI.pStages = shaderStages.data();
 	pipelineCI.pVertexInputState = &pipelineVisCI;
 	pipelineCI.pInputAssemblyState = &inputAssemblyCI;
 	pipelineCI.pTessellationState = nullptr;
@@ -476,12 +488,44 @@ void HelloGeometryShaderApp::CreatePipeline()
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCI.basePipelineIndex = 0;
 
-	VkPipeline pipeline;
-	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
-	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
+	// フラットシェーディング用のパイプラインの構築
+	{
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStages
+		{
+			book_util::LoadShader(m_device, "flatVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+			book_util::LoadShader(m_device, "flatGS.spv", VK_SHADER_STAGE_GEOMETRY_BIT),
+			book_util::LoadShader(m_device, "flatFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+		};
 
-	book_util::DestroyShaderModules(m_device, shaderStages);
-	m_pipelines[smoothShaderPipeline] = pipeline;
+		pipelineCI.stageCount = uint32_t(shaderStages.size());
+		pipelineCI.pStages = shaderStages.data();
+
+		VkPipeline pipeline;
+		VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
+		ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
+
+		book_util::DestroyShaderModules(m_device, shaderStages);
+		m_pipelines[FlatShaderPipeline] = pipeline;
+	}
+
+	// 法線描画用のモデル本体描画パイプラインの構築
+	{
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStages
+		{
+			book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+			book_util::LoadShader(m_device, "shaderFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+		};
+
+		pipelineCI.stageCount = uint32_t(shaderStages.size());
+		pipelineCI.pStages = shaderStages.data();
+
+		VkPipeline pipeline;
+		VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
+		ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
+
+		book_util::DestroyShaderModules(m_device, shaderStages);
+		m_pipelines[SmoothShaderPipeline] = pipeline;
+	}
 }
 
 void HelloGeometryShaderApp::CreateSampleLayouts()
@@ -492,7 +536,7 @@ void HelloGeometryShaderApp::CreateSampleLayouts()
 	VkDescriptorSetLayoutBinding bindingUBO{};
 	bindingUBO.binding = 0;
 	bindingUBO.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindingUBO.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindingUBO.stageFlags = VK_SHADER_STAGE_ALL;
 	bindingUBO.descriptorCount = 1;
 	descSetLayoutBindings[0] = bindingUBO;
 

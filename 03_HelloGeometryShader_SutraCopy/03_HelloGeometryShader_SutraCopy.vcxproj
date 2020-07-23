@@ -167,6 +167,33 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
     </CustomBuild>
+    <CustomBuild Include="Shader\flatFS.frag">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Fragment Shader</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Fragment Shader</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Shader\flatGS.geom">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S geom %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S geom %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Geometry Shader</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Geometry Shader</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Shader\flatVS.vert">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Vertex Shader</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Vertex Shader</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
