@@ -196,6 +196,7 @@ void HelloGeometryShaderApp::Render()
 	{
 		case DrawMode_Flat:
 		{
+			// フラットシェーディング
 			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[FlatShaderPipeline]);
 			const VkPipelineLayout& layout = GetPipelineLayout("u1");
 			vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
@@ -207,12 +208,17 @@ void HelloGeometryShaderApp::Render()
 			break;
 		case DrawMode_NormalVector:
 		{
+			// Lambertシェーディング
 			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[SmoothShaderPipeline]);
 			const VkPipelineLayout& layout = GetPipelineLayout("u1");
 			vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
 			vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 			VkDeviceSize offsets[] = {0};
 			vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
+			vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
+
+			// 法線描画
+			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[NormalVectorPipeline]);
 			vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
 		}
 			break;
@@ -506,6 +512,26 @@ void HelloGeometryShaderApp::CreatePipeline()
 
 		book_util::DestroyShaderModules(m_device, shaderStages);
 		m_pipelines[FlatShaderPipeline] = pipeline;
+	}
+
+	// 法線描画用のパイプラインの構築
+	{
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStages
+		{
+			book_util::LoadShader(m_device, "drawNormalVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+			book_util::LoadShader(m_device, "drawNormalGS.spv", VK_SHADER_STAGE_GEOMETRY_BIT),
+			book_util::LoadShader(m_device, "drawNormalFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+		};
+
+		pipelineCI.stageCount = uint32_t(shaderStages.size());
+		pipelineCI.pStages = shaderStages.data();
+
+		VkPipeline pipeline;
+		VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
+		ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
+
+		book_util::DestroyShaderModules(m_device, shaderStages);
+		m_pipelines[NormalVectorPipeline] = pipeline;
 	}
 
 	// 法線描画用のモデル本体描画パイプラインの構築

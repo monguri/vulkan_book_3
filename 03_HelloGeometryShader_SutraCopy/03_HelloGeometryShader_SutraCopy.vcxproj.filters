@@ -121,5 +121,14 @@
     <CustomBuild Include="Shader\flatGS.geom">
       <Filter>Shader</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shader\drawNormalVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\drawNormalGS.geom">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\drawNormalFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

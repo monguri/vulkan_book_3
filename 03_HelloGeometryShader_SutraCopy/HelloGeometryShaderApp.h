@@ -45,6 +45,7 @@ private:
 
 	const std::string FlatShaderPipeline = "flatShade";
 	const std::string SmoothShaderPipeline = "smoothShade";
+	const std::string NormalVectorPipeline = "drawNormalVector";
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
