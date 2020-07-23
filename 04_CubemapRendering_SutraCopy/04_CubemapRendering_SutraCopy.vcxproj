@@ -230,7 +230,7 @@
     <ClCompile Include="..\common\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\common\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="HelloGeometryShaderApp.cpp" />
+    <ClCompile Include="CubemapRenderingApp.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -247,7 +247,7 @@
     <ClInclude Include="..\common\imgui\imstb_textedit.h" />
     <ClInclude Include="..\common\imgui\imstb_truetype.h" />
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="HelloGeometryShaderApp.h" />
+    <ClInclude Include="CubemapRenderingApp.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

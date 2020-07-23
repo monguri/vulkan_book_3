@@ -1,8 +1,8 @@
-#include "HelloGeometryShaderApp.h"
+#include "CubemapRenderingApp.h"
 #include "VulkanBookUtil.h"
 
 const int WindowWidth = 800, WindowHeight = 600;
-const char* AppTile = "HelloGeometryShader";
+const char* AppTile = "CubemapRendering";
 
 static void KeyboardInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {

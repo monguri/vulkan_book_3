@@ -1,4 +1,4 @@
-#include "HelloGeometryShaderApp.h"
+#include "CubemapRenderingApp.h"
 #include "VulkanBookUtil.h"
 #include "TeapotModel.h"
 #include <array>
