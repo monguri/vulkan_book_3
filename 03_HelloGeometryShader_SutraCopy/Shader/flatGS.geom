@@ -3,7 +3,6 @@
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
 
-layout(location=0) in vec3 inNormal[];
 layout(location=0) out vec3 outColor;
 
 layout(set=0, binding=0)
