@@ -194,6 +194,8 @@ void VulkanAppBase::Terminate()
 
 	Cleanup();
 
+	CleanupImGui();
+
 	if (m_swapchain != nullptr)
 	{
 		m_swapchain->Cleanup();
@@ -758,6 +760,13 @@ void VulkanAppBase::PrepareImGui()
 	result = vkDeviceWaitIdle(m_device);
 	ThrowIfFailed(result, "vkDeviceWaitIdle Failed.");
 	vkFreeCommandBuffers(m_device, m_commandPool, 1, &command);
+}
+
+void VulkanAppBase::CleanupImGui()
+{
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 }
 
 // TODO:‚±‚Ìˆ—‚Í‰½‚Ì‚½‚ß‚É‚ ‚é‚©—‰ğ‚Å‚«‚Ä‚È‚¢

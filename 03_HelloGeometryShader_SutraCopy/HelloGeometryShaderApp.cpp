@@ -42,8 +42,6 @@ void HelloGeometryShaderApp::Prepare()
 
 void HelloGeometryShaderApp::Cleanup()
 {
-	CleanupImGui();
-
 	DestroyBuffer(m_teapot.vertexBuffer);
 	DestroyBuffer(m_teapot.indexBuffer);
 
@@ -219,13 +217,6 @@ void HelloGeometryShaderApp::Render()
 	ThrowIfFailed(result, "vkQueueSubmit Failed.");
 
 	m_swapchain->QueuePresent(m_deviceQueue, imageIndex, m_renderCompletedSem);
-}
-
-void HelloGeometryShaderApp::CleanupImGui()
-{
-	ImGui_ImplVulkan_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
 }
 
 void HelloGeometryShaderApp::RenderImGui(const VkCommandBuffer& command)

@@ -114,6 +114,7 @@ private:
 	void CreateCommandPool();
 	void CreateDescriptorPool();
 	void PrepareImGui();
+	void CleanupImGui();
 	
 	// デバッグレポート有効化
 	void EnableDebugReport();
