@@ -48,6 +48,7 @@
     <None Include="Shader\shaderVS.vert">
       <Filter>Shader</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp">
