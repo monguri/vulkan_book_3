@@ -6,6 +6,8 @@
 class HelloGeometryShaderApp : public VulkanAppBase
 {
 public:
+	HelloGeometryShaderApp();
+
 	virtual void Prepare() override;
 	virtual void Cleanup() override;
 	virtual void Render() override;

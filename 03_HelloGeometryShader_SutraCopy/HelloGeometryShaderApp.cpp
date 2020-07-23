@@ -7,6 +7,14 @@
 #include "examples/imgui_impl_vulkan.h"
 #include "examples/imgui_impl_glfw.h"
 
+HelloGeometryShaderApp::HelloGeometryShaderApp()
+{
+	m_camera.SetLookAt(
+		glm::vec3(0.0f, 2.0f, 10.0f),
+		glm::vec3(0.0f, 0.0f, 0.0f)
+	);
+}
+
 void HelloGeometryShaderApp::Prepare()
 {
 	CreateSampleLayouts();
@@ -135,12 +143,7 @@ void HelloGeometryShaderApp::Render()
 		ShaderParameters shaderParam{};
 		shaderParam.world = glm::mat4(1.0f);
 
-		glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 5.0f);
-		shaderParam.view = glm::lookAtRH(
-			cameraPos,
-			glm::vec3(0.0f, 0.0f, 0.0f),
-			glm::vec3(0.0f, 1.0f, 0.0f)
-		);
+		shaderParam.view = m_camera.GetViewMatrix();
 
 		const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 		shaderParam.proj = glm::perspectiveRH(
@@ -151,7 +154,7 @@ void HelloGeometryShaderApp::Render()
 		);
 
 		shaderParam.lightPos = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
-		shaderParam.cameraPos = glm::vec4(cameraPos, 0.0f);
+		shaderParam.cameraPos = glm::vec4(m_camera.GetPosition(), 0.0f);
 
 		const BufferObject& ubo = m_uniformBuffers[imageIndex];
 		void* p = nullptr;
