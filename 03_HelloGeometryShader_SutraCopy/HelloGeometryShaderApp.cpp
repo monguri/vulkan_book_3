@@ -42,6 +42,12 @@ void HelloGeometryShaderApp::Prepare()
 
 void HelloGeometryShaderApp::Cleanup()
 {
+	for (const BufferObject& ubo : m_uniformBuffers)
+	{
+		DestroyBuffer(ubo);
+	}
+	m_uniformBuffers.clear();
+
 	DestroyBuffer(m_teapot.vertexBuffer);
 	DestroyBuffer(m_teapot.indexBuffer);
 
