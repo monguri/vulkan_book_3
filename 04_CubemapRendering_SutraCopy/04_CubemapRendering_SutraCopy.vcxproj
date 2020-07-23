@@ -221,6 +221,8 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\commonSutraCopy\Swapchain.cpp" />
+    <ClCompile Include="..\commonSutraCopy\VulkanAppBase.cpp" />
     <ClCompile Include="..\common\imgui\examples\imgui_impl_glfw.cpp" />
     <ClCompile Include="..\common\imgui\examples\imgui_impl_vulkan.cpp" />
     <ClCompile Include="..\common\imgui\imgui.cpp" />
@@ -232,6 +234,10 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\commonSutraCopy\Swapchain.h" />
+    <ClInclude Include="..\commonSutraCopy\TeapotModel.h" />
+    <ClInclude Include="..\commonSutraCopy\VulkanAppBase.h" />
+    <ClInclude Include="..\commonSutraCopy\VulkanBookUtil.h" />
     <ClInclude Include="..\common\imgui\examples\imgui_impl_glfw.h" />
     <ClInclude Include="..\common\imgui\examples\imgui_impl_vulkan.h" />
     <ClInclude Include="..\common\imgui\imconfig.h" />
