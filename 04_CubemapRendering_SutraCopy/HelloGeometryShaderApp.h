@@ -3,10 +3,10 @@
 #include <glm/glm.hpp>
 #include "Camera.h"
 
-class HelloGeometryShaderApp : public VulkanAppBase
+class CubemapRenderingApp : public VulkanAppBase
 {
 public:
-	HelloGeometryShaderApp();
+	CubemapRenderingApp();
 
 	virtual void Prepare() override;
 	virtual void Cleanup() override;

@@ -7,7 +7,7 @@
 #include "examples/imgui_impl_vulkan.h"
 #include "examples/imgui_impl_glfw.h"
 
-HelloGeometryShaderApp::HelloGeometryShaderApp()
+CubemapRenderingApp::CubemapRenderingApp()
 {
 	m_camera.SetLookAt(
 		glm::vec3(0.0f, 2.0f, 10.0f),
@@ -15,7 +15,7 @@ HelloGeometryShaderApp::HelloGeometryShaderApp()
 	);
 }
 
-void HelloGeometryShaderApp::Prepare()
+void CubemapRenderingApp::Prepare()
 {
 	CreateSampleLayouts();
 
@@ -40,7 +40,7 @@ void HelloGeometryShaderApp::Prepare()
 	CreatePipeline();
 }
 
-void HelloGeometryShaderApp::Cleanup()
+void CubemapRenderingApp::Cleanup()
 {
 	for (const BufferObject& ubo : m_uniformBuffers)
 	{
@@ -73,7 +73,7 @@ void HelloGeometryShaderApp::Cleanup()
 	m_commandBuffers.clear();
 }
 
-bool HelloGeometryShaderApp::OnMouseButtonDown(int button)
+bool CubemapRenderingApp::OnMouseButtonDown(int button)
 {
 	if (VulkanAppBase::OnMouseButtonDown(button))
 	{
@@ -84,7 +84,7 @@ bool HelloGeometryShaderApp::OnMouseButtonDown(int button)
 	return true;
 }
 
-bool HelloGeometryShaderApp::OnMouseButtonUp(int button)
+bool CubemapRenderingApp::OnMouseButtonUp(int button)
 {
 	if (VulkanAppBase::OnMouseButtonUp(button))
 	{
@@ -95,7 +95,7 @@ bool HelloGeometryShaderApp::OnMouseButtonUp(int button)
 	return true;
 }
 
-bool HelloGeometryShaderApp::OnMouseMove(int dx, int dy)
+bool CubemapRenderingApp::OnMouseMove(int dx, int dy)
 {
 	if (VulkanAppBase::OnMouseMove(dx, dy))
 	{
@@ -106,7 +106,7 @@ bool HelloGeometryShaderApp::OnMouseMove(int dx, int dy)
 	return true;
 }
 
-void HelloGeometryShaderApp::Render()
+void CubemapRenderingApp::Render()
 {
 	if (m_isMinimizedWindow)
 	{
@@ -254,7 +254,7 @@ void HelloGeometryShaderApp::Render()
 	m_swapchain->QueuePresent(m_deviceQueue, imageIndex, m_renderCompletedSem);
 }
 
-void HelloGeometryShaderApp::RenderHUD(const VkCommandBuffer& command)
+void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -270,14 +270,14 @@ void HelloGeometryShaderApp::RenderHUD(const VkCommandBuffer& command)
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
 }
 
-void HelloGeometryShaderApp::PrepareDepthbuffer()
+void CubemapRenderingApp::PrepareDepthbuffer()
 {
 	// デプスバッファを準備する
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	m_depthBuffer = CreateImage(extent.width, extent.height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-void HelloGeometryShaderApp::PrepareFramebuffers()
+void CubemapRenderingApp::PrepareFramebuffers()
 {
 	uint32_t imageCount = m_swapchain->GetImageCount();
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
@@ -294,7 +294,7 @@ void HelloGeometryShaderApp::PrepareFramebuffers()
 	}
 }
 
-bool HelloGeometryShaderApp::OnSizeChanged(uint32_t width, uint32_t height)
+bool CubemapRenderingApp::OnSizeChanged(uint32_t width, uint32_t height)
 {
 	bool isResized = VulkanAppBase::OnSizeChanged(width, height);
 	if (isResized)
@@ -315,7 +315,7 @@ bool HelloGeometryShaderApp::OnSizeChanged(uint32_t width, uint32_t height)
 	return isResized;
 }
 
-void HelloGeometryShaderApp::PrepareTeapot()
+void CubemapRenderingApp::PrepareTeapot()
 {
 	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
 	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
@@ -374,7 +374,7 @@ void HelloGeometryShaderApp::PrepareTeapot()
 	}
 }
 
-void HelloGeometryShaderApp::CreatePipeline()
+void CubemapRenderingApp::CreatePipeline()
 {
 	// 頂点の入力の設定
 	uint32_t stride = uint32_t(sizeof(TeapotModel::Vertex));
@@ -554,7 +554,7 @@ void HelloGeometryShaderApp::CreatePipeline()
 	}
 }
 
-void HelloGeometryShaderApp::CreateSampleLayouts()
+void CubemapRenderingApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
 	VkDescriptorSetLayoutBinding descSetLayoutBindings[1];
