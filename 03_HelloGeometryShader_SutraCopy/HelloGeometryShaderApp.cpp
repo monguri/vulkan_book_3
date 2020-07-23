@@ -102,7 +102,6 @@ bool HelloGeometryShaderApp::OnMouseMove(int dx, int dy)
 	return true;
 }
 
-
 void HelloGeometryShaderApp::Render()
 {
 	if (m_isMinimizedWindow)
@@ -198,7 +197,7 @@ void HelloGeometryShaderApp::Render()
 	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.vertexBuffer.buffer, offsets);
 	vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
 
-	RenderImGui(command);
+	RenderHUD(command);
 
 	vkCmdEndRenderPass(command);
 	result = vkEndCommandBuffer(command);
@@ -225,7 +224,7 @@ void HelloGeometryShaderApp::Render()
 	m_swapchain->QueuePresent(m_deviceQueue, imageIndex, m_renderCompletedSem);
 }
 
-void HelloGeometryShaderApp::RenderImGui(const VkCommandBuffer& command)
+void HelloGeometryShaderApp::RenderHUD(const VkCommandBuffer& command)
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -246,27 +245,6 @@ void HelloGeometryShaderApp::RenderImGui(const VkCommandBuffer& command)
 
 	ImGui::Render();
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
-}
-
-bool HelloGeometryShaderApp::OnSizeChanged(uint32_t width, uint32_t height)
-{
-	bool isResized = VulkanAppBase::OnSizeChanged(width, height);
-	if (isResized)
-	{
-		// 古いデプスバッファを破棄
-		DestroyImage(m_depthBuffer);
-
-		// 古いフレームバッファを破棄
-		DestroyFramebuffers(uint32_t(m_framebuffers.size()), m_framebuffers.data());
-
-		// 新解像度でのデプスバッファ作成
-		PrepareDepthbuffer();
-
-		// 新解像度でのフレームバッファを作成
-		PrepareFramebuffers();
-	}
-
-	return isResized;
 }
 
 void HelloGeometryShaderApp::PrepareDepthbuffer()
@@ -291,6 +269,27 @@ void HelloGeometryShaderApp::PrepareFramebuffers()
 
 		m_framebuffers[i] = CreateFramebuffer(renderPass, extent.width, extent.height, uint32_t(views.size()), views.data());
 	}
+}
+
+bool HelloGeometryShaderApp::OnSizeChanged(uint32_t width, uint32_t height)
+{
+	bool isResized = VulkanAppBase::OnSizeChanged(width, height);
+	if (isResized)
+	{
+		// 古いデプスバッファを破棄
+		DestroyImage(m_depthBuffer);
+
+		// 古いフレームバッファを破棄
+		DestroyFramebuffers(uint32_t(m_framebuffers.size()), m_framebuffers.data());
+
+		// 新解像度でのデプスバッファ作成
+		PrepareDepthbuffer();
+
+		// 新解像度でのフレームバッファを作成
+		PrepareFramebuffers();
+	}
+
+	return isResized;
 }
 
 void HelloGeometryShaderApp::PrepareTeapot()

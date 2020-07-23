@@ -60,7 +60,6 @@ private:
 	void PrepareFramebuffers();
 	void PrepareTeapot();
 	void CreatePipeline();
-	void CleanupImGui();
-	void RenderImGui(const VkCommandBuffer& command);
+	void RenderHUD(const VkCommandBuffer& command);
 };
 
