@@ -38,8 +38,7 @@ private:
 		glm::mat4 world;
 		glm::mat4 view;
 		glm::mat4 proj;
-		glm::vec4 lightPos;
-		glm::vec4 cameraPos;
+		glm::vec4 lightDir;
 	};
 
 	Camera m_camera;

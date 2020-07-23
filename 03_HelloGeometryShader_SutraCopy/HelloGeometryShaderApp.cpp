@@ -156,8 +156,7 @@ void HelloGeometryShaderApp::Render()
 			1000.0f
 		);
 
-		shaderParam.lightPos = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
-		shaderParam.cameraPos = glm::vec4(m_camera.GetPosition(), 0.0f);
+		shaderParam.lightDir = glm::vec4(0.0f, 1.0f, 1.0f, 0.0f);
 
 		const BufferObject& ubo = m_uniformBuffers[imageIndex];
 		void* p = nullptr;

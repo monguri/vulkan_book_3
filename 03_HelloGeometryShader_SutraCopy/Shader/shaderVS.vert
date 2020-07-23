@@ -4,8 +4,6 @@ layout(location=0) in vec4 inPos;
 layout(location=1) in vec3 inNormal;
 
 layout(location=0) out vec4 outColor;
-layout(location=1) out vec3 outNormal;
-layout(location=2) out vec4 outWorldPos;
 
 out gl_PerVertex
 {
@@ -18,8 +16,7 @@ uniform SceneParameters
 	mat4 world;
 	mat4 view;
 	mat4 proj;
-	vec4 lightPos;
-	vec4 cameraPos;
+	vec4 lightDir;
 };
 
 void main()
@@ -27,9 +24,8 @@ void main()
 	gl_Position = proj * view * world * inPos;
 
 	vec3 worldNormal = mat3(world) * inNormal;
-	float l = dot(worldNormal, vec3(0.0f, 1.0f, 0.0f)) * 0.5f + 0.5f;
-	outColor = vec4(l);
-	outWorldPos = world * inPos;
-	outNormal = worldNormal;
+	float nl = dot(worldNormal, normalize(lightDir.xyz));
+	float l = clamp(nl, 0.0f, 1.0f);
+	outColor = vec4(l, l, l, 1.0f);
 }
 
