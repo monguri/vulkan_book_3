@@ -89,7 +89,12 @@ private:
 
 	void PrepareRenderTargetForMultiPass();
 	void PrepareCenterTeapotDescriptos();
+	void RenderCubemapFaces(const VkCommandBuffer& command);
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
+
+	// リソースバリアの設定
+	void BarrierRTToTexture(const VkCommandBuffer& command);
+	void BarrierTextureToRT(const VkCommandBuffer& command);
 };
 

@@ -219,12 +219,33 @@ void CubemapRenderingApp::Render()
 	const VkCommandBuffer& command = m_commandBuffers[m_imageIndex].commandBuffer;
 	result = vkBeginCommandBuffer(command, &commandBI);
 	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
+
+	switch (m_mode)
+	{
+		case CubemapRenderingApp::Mode_StaticCubemap:
+			// 何もしない
+			break;
+		case CubemapRenderingApp::Mode_MultiPassCubemap:
+			RenderCubemapFaces(command);
+			break;
+		default:
+			assert(false);
+			break;
+	}
+
+	// 描画した内容をテクスチャとして使うためのバリアを設定
+	BarrierRTToTexture(command);
+
 	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
 
 	RenderToMain(command);
 	RenderHUD(command);
 
 	vkCmdEndRenderPass(command);
+
+	// 次回の描画に備えてバリアを設定
+	BarrierTextureToRT(command);
+
 	result = vkEndCommandBuffer(command);
 	ThrowIfFailed(result, "vkEndCommandBuffer Failed.");
 
@@ -247,6 +268,10 @@ void CubemapRenderingApp::Render()
 	ThrowIfFailed(result, "vkQueueSubmit Failed.");
 
 	m_swapchain->QueuePresent(m_deviceQueue, m_imageIndex, m_renderCompletedSem);
+}
+
+void CubemapRenderingApp::RenderCubemapFaces(const VkCommandBuffer& command)
+{
 }
 
 void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
@@ -302,6 +327,14 @@ void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
 
 	ImGui::Render();
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
+}
+
+void CubemapRenderingApp::BarrierRTToTexture(const VkCommandBuffer& command)
+{
+}
+
+void CubemapRenderingApp::BarrierTextureToRT(const VkCommandBuffer& command)
+{
 }
 
 void CubemapRenderingApp::PrepareDepthbuffer()
