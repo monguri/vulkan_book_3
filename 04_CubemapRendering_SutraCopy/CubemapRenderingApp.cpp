@@ -258,7 +258,7 @@ void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
-	//ImGui::Combo("Mode", (int*)&m_mode, "Flat\0NormalVector\0\0");
+	ImGui::Combo("Mode", (int*)&m_mode, "Static\0MultiPass\0\0");
 	ImGui::End();
 
 	ImGui::Render();

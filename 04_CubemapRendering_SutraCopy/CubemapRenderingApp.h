@@ -53,6 +53,13 @@ private:
 
 	uint32_t m_imageIndex = 0;
 
+	enum Mode
+	{
+		Mode_StaticCubemap,
+		Mode_MultiPassCubemap,
+	};
+	Mode m_mode = Mode_StaticCubemap;
+
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
