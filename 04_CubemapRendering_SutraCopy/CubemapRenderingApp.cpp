@@ -197,6 +197,7 @@ void CubemapRenderingApp::Render()
 	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
 	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
 
+	RenderToMain(command);
 	RenderHUD(command);
 
 	vkCmdEndRenderPass(command);
