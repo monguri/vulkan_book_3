@@ -249,8 +249,23 @@ void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
 	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_centerTeapot.pipeline);
+
 	const VkPipelineLayout& pipelineLayout = GetPipelineLayout("u1t1");
-	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &m_centerTeapot.dsCubemapStatic[m_imageIndex], 0, nullptr);
+	VkDescriptorSet ds = VK_NULL_HANDLE;
+	switch (m_mode)
+	{
+		case CubemapRenderingApp::Mode_StaticCubemap:
+			ds = m_centerTeapot.dsCubemapStatic[m_imageIndex];
+			break;
+		case CubemapRenderingApp::Mode_MultiPassCubemap:
+			ds = m_centerTeapot.dsCubemapRendered[m_imageIndex];
+			break;
+		default:
+			assert(false);
+			break;
+	}
+
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
 	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
