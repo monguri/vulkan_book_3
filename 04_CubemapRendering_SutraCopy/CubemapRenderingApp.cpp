@@ -1,11 +1,17 @@
 #include "CubemapRenderingApp.h"
 #include "VulkanBookUtil.h"
 #include "TeapotModel.h"
-#include <array>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <glm/gtc/matrix_transform.hpp>
+
 #include "imgui.h"
 #include "examples/imgui_impl_vulkan.h"
 #include "examples/imgui_impl_glfw.h"
+
+#include <array>
 
 CubemapRenderingApp::CubemapRenderingApp()
 {
@@ -35,6 +41,8 @@ void CubemapRenderingApp::Prepare()
 		c.commandBuffer = CreateCommandBuffer(false); // コマンドバッファは開始状態にしない
 	}
 
+	PrepareSceneResource();
+
 	PrepareTeapot();
 
 	CreatePipeline();
@@ -59,6 +67,8 @@ void CubemapRenderingApp::Cleanup()
 		vkDestroyPipeline(m_device, v.second, nullptr);
 	}
 	m_pipelines.clear();
+
+	DestroyImage(m_staticCubemap);
 
 	DestroyImage(m_depthBuffer);
 	uint32_t count = uint32_t(m_framebuffers.size());
@@ -313,6 +323,183 @@ bool CubemapRenderingApp::OnSizeChanged(uint32_t width, uint32_t height)
 	}
 
 	return isResized;
+}
+
+void CubemapRenderingApp::PrepareSceneResource()
+{
+	// 性的なキューブマップの準備
+	const char* files[6] = {
+		"posx.jpg",
+		"negx.jpg",
+		"posy.jpg",
+		"negy.jpg",
+		"posz.jpg",
+		"negz.jpg",
+	};
+	m_staticCubemap = LoadCubeTextureFromFile(files);
+}
+
+VulkanAppBase::ImageObject CubemapRenderingApp::LoadCubeTextureFromFile(const char* faceFiles[6])
+{
+	int width, height = 0;
+	stbi_uc* faceImages[6] = { nullptr };
+	for (int i = 0; i < 6; ++i)
+	{
+		faceImages[i] = stbi_load(faceFiles[i], &width, &height, nullptr, 4);
+	}
+
+	VkImageCreateInfo imageCI{};
+	imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCI.pNext = nullptr;
+	imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Cubemapとして扱うため
+	imageCI.imageType = VK_IMAGE_TYPE_2D;
+	imageCI.format = VK_FORMAT_R8G8B8A8_UNORM; // 固定
+	imageCI.extent.width = width;
+	imageCI.extent.height = height;
+	imageCI.extent.depth = 1;
+	imageCI.mipLevels = 1;
+	imageCI.arrayLayers = 6; // Cubemapとして扱うため
+	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageCI.queueFamilyIndexCount = 0;
+	imageCI.pQueueFamilyIndices = nullptr;
+	imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	VkImage cubemapImage = VK_NULL_HANDLE;
+	VkDeviceMemory cubemapMemory = VK_NULL_HANDLE;
+
+	VkResult result = vkCreateImage(m_device, &imageCI, nullptr, &cubemapImage);
+	ThrowIfFailed(result, "vkCreateImage Failed.");
+
+	VkMemoryRequirements reqs;
+	vkGetImageMemoryRequirements(m_device, cubemapImage, &reqs);
+
+	VkMemoryAllocateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	info.pNext = nullptr;
+	info.allocationSize = reqs.size;
+	info.memoryTypeIndex = GetMemoryTypeIndex(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	result = vkAllocateMemory(m_device, &info, nullptr, &cubemapMemory);
+	ThrowIfFailed(result, "vkAllocateMemory Failed.");
+	result = vkBindImageMemory(m_device, cubemapImage, cubemapMemory, 0);
+	ThrowIfFailed(result, "vkBindImageMemory Failed.");
+
+	VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	VkImageViewCreateInfo viewCI{};
+	viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCI.pNext = nullptr;
+	viewCI.flags = 0;
+	viewCI.image = cubemapImage;
+	viewCI.viewType = VK_IMAGE_VIEW_TYPE_CUBE; // Cubemap用
+	viewCI.format = imageCI.format;
+	viewCI.components = book_util::DefaultComponentMapping();
+	viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewCI.subresourceRange.baseMipLevel = 0;
+	viewCI.subresourceRange.levelCount = 1;
+	viewCI.subresourceRange.baseArrayLayer = 0;
+	viewCI.subresourceRange.layerCount = 6; // Cubemap用
+
+	VkImageView cubemapView = VK_NULL_HANDLE;
+	result = vkCreateImageView(m_device, &viewCI, nullptr, &cubemapView);
+	ThrowIfFailed(result, "vkCreateImageView Failed.");
+
+	// ステージング用準備
+	uint32_t bufferSize = uint32_t(width * height * sizeof(uint32_t));
+	BufferObject bufferSrc[6];
+	for (int i = 0; i < 6; ++i)
+	{
+		bufferSrc[i] = CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		WriteToHostVisibleMemory(bufferSrc[i].memory, bufferSize, faceImages[i]);
+	}
+
+	const VkCommandBuffer& command = CreateCommandBuffer();
+
+	VkImageMemoryBarrier imb{};
+	imb.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imb.pNext = nullptr;
+	imb.srcAccessMask = 0;
+	imb.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imb.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imb.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imb.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imb.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imb.image = cubemapImage;
+	imb.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imb.subresourceRange.baseMipLevel = 0;
+	imb.subresourceRange.levelCount = 1;
+	imb.subresourceRange.baseArrayLayer = 0;
+	imb.subresourceRange.layerCount = 6; // Cubemap用
+
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		0, // bufferMemoryBarrierCount
+		nullptr,
+		1, // imageMemoryBarrierCount
+		&imb
+	);
+
+	for (int i = 0; i < 6; ++i)
+	{
+		VkBufferImageCopy region{};
+		region.imageExtent.width = uint32_t(width);
+		region.imageExtent.height = uint32_t(height);
+		region.imageExtent.depth = 1;
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.mipLevel = 0;
+		region.imageSubresource.baseArrayLayer = i; // 各バッファ
+		region.imageSubresource.layerCount = 1;
+
+		vkCmdCopyBufferToImage(
+			command,
+			bufferSrc[i].buffer,
+			cubemapImage,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1,
+			&region
+		);
+	}
+
+	imb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	imb.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imb.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		0, // bufferMemoryBarrierCount
+		nullptr,
+		1, // imageMemoryBarrierCount
+		&imb
+	);
+
+	FinishCommandBuffer(command);
+	DestroyCommandBuffer(command);
+
+	for (int i = 0; i < 6; ++i)
+	{
+		stbi_image_free(faceImages[i]);
+		vkDestroyBuffer(m_device, bufferSrc[i].buffer, nullptr);
+		vkFreeMemory(m_device, bufferSrc[i].memory, nullptr);
+	}
+
+	ImageObject cubemap;
+	cubemap.image = cubemapImage;
+	cubemap.memory = cubemapMemory;
+	cubemap.view = cubemapView;
+	return cubemap;
 }
 
 void CubemapRenderingApp::PrepareTeapot()

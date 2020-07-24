@@ -41,6 +41,7 @@ private:
 
 	Camera m_camera;
 	ModelData m_teapot;
+	ImageObject m_staticCubemap;
 	std::vector<BufferObject> m_uniformBuffers;
 
 	const std::string FlatShaderPipeline = "flatShade";
@@ -50,6 +51,8 @@ private:
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
+	void PrepareSceneResource();
+	ImageObject LoadCubeTextureFromFile(const char* faceFiles[6]);
 	void PrepareTeapot();
 	void CreatePipeline();
 	void RenderHUD(const VkCommandBuffer& command);
