@@ -53,9 +53,19 @@ private:
 	};
 	CenterTeapot m_centerTeapot;
 
+	struct CubeFaceScene
+	{
+		VkImageView viewFaces[6];
+		ImageObject depth;
+		VkFramebuffer fbFaces[6];
+		VkRenderPass renderPass;
+	};
+	CubeFaceScene m_cubeFaceScene;
+
 	uint32_t m_imageIndex = 0;
 
 	const uint32_t CubeEdge = 512;
+	const VkFormat CubemapFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
 	enum Mode
 	{
@@ -76,6 +86,8 @@ private:
 		const std::string& layoutName,
 		const std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	);
+
+	void PrepareRenderTargetForMultiPass();
 	void PrepareCenterTeapotDescriptos();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);

@@ -28,6 +28,9 @@ void CubemapRenderingApp::Prepare()
 	VkRenderPass renderPass = CreateRenderPass(m_swapchain->GetSurfaceFormat().format, VK_FORMAT_D32_SFLOAT);
 	RegisterRenderPass("default", renderPass);
 
+	renderPass = CreateRenderPass(CubemapFormat, VK_FORMAT_D32_SFLOAT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	RegisterRenderPass("cubemap", renderPass);
+
 	PrepareDepthbuffer();
 
 	PrepareFramebuffers();
@@ -42,6 +45,9 @@ void CubemapRenderingApp::Prepare()
 	}
 
 	PrepareSceneResource();
+	
+	// レンダーターゲットの準備
+	PrepareRenderTargetForMultiPass();
 
 	PrepareCenterTeapotDescriptos();
 
@@ -53,6 +59,9 @@ void CubemapRenderingApp::Prepare()
 
 void CubemapRenderingApp::Cleanup()
 {
+	DestroyBuffer(m_teapot.resVertexBuffer);
+	DestroyBuffer(m_teapot.resIndexBuffer);
+
 	// CenterTeapot
 	{
 		vkDestroyPipeline(m_device, m_centerTeapot.pipeline, nullptr);
@@ -78,9 +87,16 @@ void CubemapRenderingApp::Cleanup()
 		m_centerTeapot.dsCubemapRendered.clear();
 	}
 
-	DestroyBuffer(m_teapot.resVertexBuffer);
-	DestroyBuffer(m_teapot.resIndexBuffer);
+	// CubeFaceScene
+	{
+		for (const VkImageView& view : m_cubeFaceScene.viewFaces)
+		{
+			vkDestroyImageView(m_device, view, nullptr);
+		}
 
+		DestroyImage(m_cubeFaceScene.depth);
+		DestroyFramebuffers(_countof(m_cubeFaceScene.fbFaces), m_cubeFaceScene.fbFaces);
+	}
 
 	DestroyImage(m_staticCubemap);
 	DestroyImage(m_cubemapRendered);
@@ -352,7 +368,7 @@ void CubemapRenderingApp::PrepareSceneResource()
 	imageCI.pNext = nullptr;
 	imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Cubemapとして扱うため
 	imageCI.imageType = VK_IMAGE_TYPE_2D;
-	imageCI.format = VK_FORMAT_R8G8B8A8_UNORM; // 固定
+	imageCI.format = CubemapFormat;
 	imageCI.extent.width = CubeEdge;
 	imageCI.extent.height = CubeEdge;
 	imageCI.extent.depth = 1;
@@ -430,7 +446,7 @@ VulkanAppBase::ImageObject CubemapRenderingApp::LoadCubeTextureFromFile(const ch
 	imageCI.pNext = nullptr;
 	imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Cubemapとして扱うため
 	imageCI.imageType = VK_IMAGE_TYPE_2D;
-	imageCI.format = VK_FORMAT_R8G8B8A8_UNORM; // 固定
+	imageCI.format = CubemapFormat; // 固定
 	imageCI.extent.width = width;
 	imageCI.extent.height = height;
 	imageCI.extent.depth = 1;
@@ -793,6 +809,98 @@ void CubemapRenderingApp::PrepareCenterTeapotDescriptos()
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	m_centerTeapot.pipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u1t1", shaderStages);
 	book_util::DestroyShaderModules(m_device, shaderStages);
+}
+
+void CubemapRenderingApp::PrepareRenderTargetForMultiPass()
+{
+	VkResult result = VK_SUCCESS;
+
+	// vkImageViewをm_cubemapRenderedのキューブマップとしての
+	// VK_IMAGE_VIEW_TYPE_CUBEのひとつでなく
+	// 各テクスチャごとのVK_IMAGE_VIEW_TYPE_2Dのものを6つ用意する
+	for (int face = 0; face < 6; ++face)
+	{
+		VkImageViewCreateInfo viewCI{};
+		viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewCI.pNext = nullptr;
+		viewCI.flags = 0;
+		viewCI.image = m_cubemapRendered.image;
+		viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewCI.format = CubemapFormat;
+		viewCI.components = book_util::DefaultComponentMapping();
+		viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewCI.subresourceRange.baseMipLevel = 0;
+		viewCI.subresourceRange.levelCount = 1;
+		viewCI.subresourceRange.baseArrayLayer = uint32_t(face); // これでキューブマップ内の一面のみ2Dテクスチャビューとして扱う
+		viewCI.subresourceRange.layerCount = 1;
+		result = vkCreateImageView(m_device, &viewCI, nullptr, &m_cubeFaceScene.viewFaces[face]);
+		ThrowIfFailed(result, "vkCreateImageView Failed.");
+	}
+
+	// 描画先デプスバッファの準備
+	VkImageCreateInfo depthImageCI{};
+	depthImageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	depthImageCI.pNext = nullptr;
+	depthImageCI.flags = 0;
+	depthImageCI.imageType = VK_IMAGE_TYPE_2D;
+	depthImageCI.format = VK_FORMAT_D32_SFLOAT;
+	depthImageCI.extent.width = CubeEdge;
+	depthImageCI.extent.height = CubeEdge;
+	depthImageCI.extent.depth = 1;
+	depthImageCI.mipLevels = 1;
+	depthImageCI.arrayLayers = 1;
+	depthImageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthImageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+	depthImageCI.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	depthImageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	depthImageCI.queueFamilyIndexCount = 0;
+	depthImageCI.pQueueFamilyIndices = nullptr;
+	depthImageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	result = vkCreateImage(m_device, &depthImageCI, nullptr, &m_cubeFaceScene.depth.image);
+	ThrowIfFailed(result, "vkCreateImage Failed.");
+
+	m_cubeFaceScene.depth.memory = AllocateMemory(m_cubeFaceScene.depth.image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	result = vkBindImageMemory(m_device, m_cubeFaceScene.depth.image, m_cubeFaceScene.depth.memory, 0);
+	ThrowIfFailed(result, "vkBindImageMemory Failed.");
+
+	VkImageViewCreateInfo depthViewCI{};
+	depthViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	depthViewCI.pNext = nullptr;
+	depthViewCI.flags = 0;
+	depthViewCI.image = m_cubeFaceScene.depth.image;
+	depthViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	depthViewCI.format = depthImageCI.format;
+	depthViewCI.components = book_util::DefaultComponentMapping();
+	depthViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	depthViewCI.subresourceRange.baseMipLevel = 0;
+	depthViewCI.subresourceRange.levelCount = 1;
+	depthViewCI.subresourceRange.baseArrayLayer = 0;
+	depthViewCI.subresourceRange.layerCount = 1;
+	result = vkCreateImageView(m_device, &depthViewCI, nullptr, &m_cubeFaceScene.depth.view);
+	ThrowIfFailed(result, "vkCreateImageView Failed.");
+
+	m_cubeFaceScene.renderPass = GetRenderPass("cubemap");
+
+	for (int i = 0; i < 6; ++i)
+	{
+		std::array<VkImageView, 2> attachments;
+		attachments[0] = m_cubeFaceScene.viewFaces[i];
+		attachments[1] = m_cubeFaceScene.depth.view;
+
+		VkFramebufferCreateInfo fbCI{};
+		fbCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		fbCI.pNext = nullptr;
+		fbCI.flags = 0;
+		fbCI.renderPass = m_cubeFaceScene.renderPass;
+		fbCI.attachmentCount = uint32_t(attachments.size());
+		fbCI.pAttachments = attachments.data();
+		fbCI.width = CubeEdge;
+		fbCI.height = CubeEdge;
+		fbCI.layers = 1;
+
+		result = vkCreateFramebuffer(m_device, &fbCI, nullptr, &m_cubeFaceScene.fbFaces[i]);
+		ThrowIfFailed(result, "vkCreateFramebuffer Failed.");
+	}
 }
 
 void CubemapRenderingApp::CreateSampleLayouts()
