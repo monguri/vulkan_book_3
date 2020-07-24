@@ -22,7 +22,9 @@ uniform samplerCube samplerColor;
 void main()
 {
 	vec3 incident = normalize(inWorldPos.xyz - cameraPos.xyz);
-	vec3 r = reflect(incident, inNormal); //TODO: 入射方向の反射でよい？
+	// https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/reflect.xhtml
+	// 入射方向のベクトルから、反射方向のベクトルを取り出す
+	vec3 r = reflect(incident, inNormal);
 	outColor = texture(samplerColor, r) * vec4(inColor, 1.0f);
 }
 
