@@ -514,7 +514,7 @@ void VulkanAppBase::DestroyImage(const VulkanAppBase::ImageObject& imageObj)
 	}
 }
 
-VkFramebuffer VulkanAppBase::CreateFramebuffer(VkRenderPass renderPass, uint32_t width, uint32_t height, uint32_t viewCount, VkImageView* views)
+VkFramebuffer VulkanAppBase::CreateFramebuffer(const VkRenderPass& renderPass, uint32_t width, uint32_t height, uint32_t viewCount, VkImageView* views)
 {
 	VkFramebufferCreateInfo fbCI{};
 	fbCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -555,9 +555,30 @@ VkFence VulkanAppBase::CreateFence()
 	return fence;
 }
 
+VkDescriptorSet VulkanAppBase::AllocateDescriptorset(const VkDescriptorSetLayout& dsLayout)
+{
+	VkDescriptorSetAllocateInfo descriptorSetAI{};
+	descriptorSetAI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptorSetAI.pNext = nullptr;
+	descriptorSetAI.descriptorPool = m_descriptorPool;
+	descriptorSetAI.descriptorSetCount = 1;
+	descriptorSetAI.pSetLayouts = &dsLayout;
+
+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	VkResult result = vkAllocateDescriptorSets(m_device, &descriptorSetAI, &descriptorSet);
+	ThrowIfFailed(result, "vkAllocateDescriptorSets Failed.");
+
+	return descriptorSet;
+}
+
 void VulkanAppBase::DestroyFence(VkFence fence)
 {
 	vkDestroyFence(m_device, fence, nullptr);
+}
+
+void VulkanAppBase::DeallocateDescriptorset(const VkDescriptorSet& descriptorSet)
+{
+	vkFreeDescriptorSets(m_device, m_descriptorPool, 1, &descriptorSet);
 }
 
 VkCommandBuffer VulkanAppBase::CreateCommandBuffer(bool bBegin)

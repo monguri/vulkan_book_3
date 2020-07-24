@@ -92,13 +92,15 @@ public:
 
 	BufferObject CreateBuffer(uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags props);
 	ImageObject CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage);
-	VkFramebuffer CreateFramebuffer(VkRenderPass renderPass, uint32_t width, uint32_t height, uint32_t viewCount, VkImageView* views);
+	VkFramebuffer CreateFramebuffer(const VkRenderPass& renderPass, uint32_t width, uint32_t height, uint32_t viewCount, VkImageView* views);
 	VkFence CreateFence();
+	VkDescriptorSet AllocateDescriptorset(const VkDescriptorSetLayout& dsLayout);
 
 	void DestroyBuffer(const BufferObject& bufferObj);
 	void DestroyImage(const ImageObject& imageObj);
 	void DestroyFramebuffers(uint32_t count, VkFramebuffer* framebuffers);
 	void DestroyFence(VkFence fence);
+	void DeallocateDescriptorset(const VkDescriptorSet& descriptorSet);
 	VkCommandBuffer CreateCommandBuffer(bool bBegin = true);
 	void FinishCommandBuffer(VkCommandBuffer command);
 	void DestroyCommandBuffer(VkCommandBuffer command);

@@ -43,32 +43,40 @@ void CubemapRenderingApp::Prepare()
 
 	PrepareSceneResource();
 
-	PrepareTeapot();
+	PrepareCenterTeapotDescriptos();
 
-	CreatePipeline();
+	// ティーポットのモデルをロード
+	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
+	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
+	m_teapot = CreateSimpleModel(vertices, indices);
 }
 
 void CubemapRenderingApp::Cleanup()
 {
-	for (const BufferObject& ubo : m_uniformBuffers)
+	// CenterTeapot
 	{
-		DestroyBuffer(ubo);
+		vkDestroyPipeline(m_device, m_centerTeapot.pipeline, nullptr);
+
+		for (const BufferObject& ubo : m_centerTeapot.sceneUBO)
+		{
+			DestroyBuffer(ubo);
+		}
+		m_centerTeapot.sceneUBO.clear();
+
+		for (const VkDescriptorSet& ds : m_centerTeapot.dsCubemapStatic)
+		{
+			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
+			DeallocateDescriptorset(ds);
+		}
+		m_centerTeapot.dsCubemapStatic.clear();
 	}
-	m_uniformBuffers.clear();
 
 	DestroyBuffer(m_teapot.resVertexBuffer);
 	DestroyBuffer(m_teapot.resIndexBuffer);
 
-	vkFreeDescriptorSets(m_device, m_descriptorPool, uint32_t(m_descriptorSets.size()), m_descriptorSets.data());
-	m_descriptorSets.clear();
-
-	for (auto& v : m_pipelines)
-	{
-		vkDestroyPipeline(m_device, v.second, nullptr);
-	}
-	m_pipelines.clear();
 
 	DestroyImage(m_staticCubemap);
+	vkDestroySampler(m_device, m_cubemapSampler, nullptr);
 
 	DestroyImage(m_depthBuffer);
 	uint32_t count = uint32_t(m_framebuffers.size());
@@ -123,11 +131,35 @@ void CubemapRenderingApp::Render()
 		MsgLoopMinimizedWindow();
 	}
 
-	uint32_t imageIndex = 0;
-	VkResult result = m_swapchain->AcquireNextImage(&imageIndex, m_presentCompletedSem);
+	VkResult result = m_swapchain->AcquireNextImage(&m_imageIndex, m_presentCompletedSem);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
 		return;
+	}
+
+	{
+		ShaderParameters shaderParam{};
+		shaderParam.world = glm::mat4(1.0f);
+
+		shaderParam.view = m_camera.GetViewMatrix();
+
+		const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
+		shaderParam.proj = glm::perspectiveRH(
+			glm::radians(45.0f),
+			float(extent.width) / float(extent.height),
+			0.1f,
+			1000.0f
+		);
+
+		shaderParam.lightDir = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
+		shaderParam.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
+
+		const BufferObject& ubo = m_centerTeapot.sceneUBO[m_imageIndex];
+		void* p = nullptr;
+		result = vkMapMemory(m_device, ubo.memory, 0, VK_WHOLE_SIZE, 0, &p);
+		ThrowIfFailed(result, "vkMapMemory Failed.");
+		memcpy(p, &shaderParam, sizeof(ShaderParameters));
+		vkUnmapMemory(m_device, ubo.memory);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -145,7 +177,7 @@ void CubemapRenderingApp::Render()
 	rpBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	rpBI.pNext = nullptr;
 	rpBI.renderPass = GetRenderPass("default");
-	rpBI.framebuffer = m_framebuffers[imageIndex];
+	rpBI.framebuffer = m_framebuffers[m_imageIndex];
 	rpBI.renderArea = renderArea;
 	rpBI.clearValueCount = uint32_t(clearValue.size());
 	rpBI.pClearValues = clearValue.data();
@@ -156,86 +188,14 @@ void CubemapRenderingApp::Render()
 	commandBI.flags = 0;
 	commandBI.pInheritanceInfo = nullptr;
 
-	{
-		ShaderParameters shaderParam{};
-		shaderParam.world = glm::mat4(1.0f);
-
-		shaderParam.view = m_camera.GetViewMatrix();
-
-		const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
-		shaderParam.proj = glm::perspectiveRH(
-			glm::radians(45.0f),
-			float(extent.width) / float(extent.height),
-			0.1f,
-			1000.0f
-		);
-
-		shaderParam.lightDir = glm::vec4(0.0f, 1.0f, 1.0f, 0.0f);
-
-		const BufferObject& ubo = m_uniformBuffers[imageIndex];
-		void* p = nullptr;
-		result = vkMapMemory(m_device, ubo.memory, 0, VK_WHOLE_SIZE, 0, &p);
-		ThrowIfFailed(result, "vkMapMemory Failed.");
-		memcpy(p, &shaderParam, sizeof(ShaderParameters));
-		vkUnmapMemory(m_device, ubo.memory);
-	}
-
-	const VkFence& fence = m_commandBuffers[imageIndex].fence;
+	const VkFence& fence = m_commandBuffers[m_imageIndex].fence;
 	result = vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX);
 	ThrowIfFailed(result, "vkWaitForFences Failed.");
 
-	const VkCommandBuffer& command = m_commandBuffers[imageIndex].commandBuffer;
+	const VkCommandBuffer& command = m_commandBuffers[m_imageIndex].commandBuffer;
 	result = vkBeginCommandBuffer(command, &commandBI);
 	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
 	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
-
-	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
-	const VkViewport& viewport = book_util::GetViewportFlipped(float(extent.width), float(extent.height));
-
-	VkOffset2D offset{};
-	offset.x = 0;
-	offset.y = 0;
-	VkRect2D scissor{};
-	scissor.offset = offset;
-	scissor.extent = extent;
-
-	vkCmdSetScissor(command, 0, 1, &scissor);
-	vkCmdSetViewport(command, 0, 1, &viewport);
-
-	switch (m_mode)
-	{
-		case DrawMode_Flat:
-		{
-			// フラットシェーディング
-			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[FlatShaderPipeline]);
-			const VkPipelineLayout& layout = GetPipelineLayout("u1");
-			vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
-			vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-			VkDeviceSize offsets[] = {0};
-			vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
-			vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
-		}
-			break;
-		case DrawMode_NormalVector:
-		{
-			// Lambertシェーディング
-			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[SmoothShaderPipeline]);
-			const VkPipelineLayout& layout = GetPipelineLayout("u1");
-			vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[imageIndex], 0, nullptr);
-			vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-			VkDeviceSize offsets[] = {0};
-			vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
-			vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
-
-			// 法線描画
-			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[NormalVectorPipeline]);
-			vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
-		}
-			break;
-		default:
-			assert(false);
-			break;
-	}
 
 	RenderHUD(command);
 
@@ -261,7 +221,31 @@ void CubemapRenderingApp::Render()
 	result = vkQueueSubmit(m_deviceQueue, 1, &submitInfo, fence);
 	ThrowIfFailed(result, "vkQueueSubmit Failed.");
 
-	m_swapchain->QueuePresent(m_deviceQueue, imageIndex, m_renderCompletedSem);
+	m_swapchain->QueuePresent(m_deviceQueue, m_imageIndex, m_renderCompletedSem);
+}
+
+void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
+{
+	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
+	const VkViewport& viewport = book_util::GetViewportFlipped(float(extent.width), float(extent.height));
+
+	VkOffset2D offset{};
+	offset.x = 0;
+	offset.y = 0;
+	VkRect2D scissor{};
+	scissor.offset = offset;
+	scissor.extent = extent;
+
+	vkCmdSetScissor(command, 0, 1, &scissor);
+	vkCmdSetViewport(command, 0, 1, &viewport);
+
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_centerTeapot.pipeline);
+	const VkPipelineLayout& pipelineLayout = GetPipelineLayout("u1t1");
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &m_centerTeapot.dsCubemapStatic[m_imageIndex], 0, nullptr);
+	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	VkDeviceSize offsets[] = {0};
+	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
+	vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
 }
 
 void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
@@ -273,7 +257,7 @@ void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
-	ImGui::Combo("Mode", (int*)&m_mode, "Flat\0NormalVector\0\0");
+	//ImGui::Combo("Mode", (int*)&m_mode, "Flat\0NormalVector\0\0");
 	ImGui::End();
 
 	ImGui::Render();
@@ -337,6 +321,29 @@ void CubemapRenderingApp::PrepareSceneResource()
 		"negz.jpg",
 	};
 	m_staticCubemap = LoadCubeTextureFromFile(files);
+
+	// サンプラーの準備。これは2Dテクスチャのときと何も変わらない
+	VkSamplerCreateInfo samplerCI{};
+	samplerCI.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCI.pNext = nullptr;
+	samplerCI.flags = 0;
+	samplerCI.magFilter = VK_FILTER_LINEAR;
+	samplerCI.minFilter = VK_FILTER_LINEAR;
+	samplerCI.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCI.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCI.mipLodBias = 0.0f;
+	samplerCI.anisotropyEnable = VK_FALSE;
+	samplerCI.maxAnisotropy = 1.0f;
+	samplerCI.compareEnable = VK_FALSE;
+	samplerCI.compareOp = VK_COMPARE_OP_NEVER;
+	samplerCI.minLod = 0.0f;
+	samplerCI.maxLod = 1.0f;
+	samplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	samplerCI.unnormalizedCoordinates = VK_FALSE;
+	VkResult result = vkCreateSampler(m_device, &samplerCI, nullptr, &m_cubemapSampler);
+	ThrowIfFailed(result, "vkCreateSampler Failed.");
 }
 
 VulkanAppBase::ImageObject CubemapRenderingApp::LoadCubeTextureFromFile(const char* faceFiles[6])
@@ -502,66 +509,13 @@ VulkanAppBase::ImageObject CubemapRenderingApp::LoadCubeTextureFromFile(const ch
 	return cubemap;
 }
 
-void CubemapRenderingApp::PrepareTeapot()
-{
-	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
-	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
-	m_teapot = CreateSimpleModel(vertices, indices);
-
-	// ディスクリプタセット
-	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
-
-	VkDescriptorSetAllocateInfo descriptorSetAI{};
-	descriptorSetAI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	descriptorSetAI.pNext = nullptr;
-	descriptorSetAI.descriptorPool = m_descriptorPool;
-	descriptorSetAI.descriptorSetCount = 1;
-	descriptorSetAI.pSetLayouts = &dsLayout;
-
-	uint32_t imageCount = m_swapchain->GetImageCount();
-	for (uint32_t i = 0; i < imageCount; ++i)
-	{
-		VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-		VkResult result = vkAllocateDescriptorSets(m_device, &descriptorSetAI, &descriptorSet);
-		ThrowIfFailed(result, "vkAllocateDescriptorSets Failed.");
-
-		m_descriptorSets.push_back(descriptorSet);
-	}
-
-	// 定数バッファの準備
-	VkMemoryPropertyFlags uboMemoryProps = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	m_uniformBuffers.resize(imageCount);
-
-	for (uint32_t i = 0; i < imageCount; ++i)
-	{
-		uint32_t buffersize = uint32_t(sizeof(ShaderParameters));
-		m_uniformBuffers[i] = CreateBuffer(buffersize , VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, uboMemoryProps);
-	}
-
-	for (size_t i = 0; i < imageCount; ++i)
-	{
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = m_uniformBuffers[i].buffer;
-		bufferInfo.offset = 0;
-		bufferInfo.range = VK_WHOLE_SIZE;
-
-		VkWriteDescriptorSet writeDescSet{};
-		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writeDescSet.pNext = nullptr;
-		writeDescSet.dstSet = m_descriptorSets[i],
-		writeDescSet.dstBinding = 0;
-		writeDescSet.dstArrayElement = 0;
-		writeDescSet.descriptorCount = 1;
-		writeDescSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		writeDescSet.pImageInfo = nullptr;
-		writeDescSet.pBufferInfo = &bufferInfo;
-		writeDescSet.pTexelBufferView = nullptr;
-
-		vkUpdateDescriptorSets(m_device, 1, &writeDescSet, 0, nullptr);
-	}
-}
-
-void CubemapRenderingApp::CreatePipeline()
+VkPipeline CubemapRenderingApp::CreateRenderTeapotPipeline(
+	const std::string& renderPassName,
+	uint32_t width,
+	uint32_t height,
+	const std::string& layoutName,
+	const std::vector<VkPipelineShaderStageCreateInfo> shaderStages
+)
 {
 	// 頂点の入力の設定
 	uint32_t stride = uint32_t(sizeof(TeapotModel::Vertex));
@@ -622,25 +576,22 @@ void CubemapRenderingApp::CreatePipeline()
 	multisampleCI.alphaToCoverageEnable = VK_FALSE;
 	multisampleCI.alphaToOneEnable = VK_FALSE;
 	
-	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
+	const VkViewport& viewport = book_util::GetViewportFlipped(float(width), float(height));
 
-	const VkViewport& viewport = book_util::GetViewportFlipped(float(extent.width), float(extent.height));
-
-	VkOffset2D offset{};
-	offset.x = 0;
-	offset.y = 0;
 	VkRect2D scissor{};
-	scissor.offset = offset;
-	scissor.extent = extent;
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = width;
+	scissor.extent.height = height;
 
-	VkPipelineViewportStateCreateInfo viewportCI{};
-	viewportCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewportCI.pNext = nullptr;
-	viewportCI.flags = 0;
-	viewportCI.viewportCount = 1;
-	viewportCI.pViewports = &viewport;
-	viewportCI.scissorCount = 1;
-	viewportCI.pScissors = &scissor;
+	VkPipelineViewportStateCreateInfo viewportStateCI{};
+	viewportStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportStateCI.pNext = nullptr;
+	viewportStateCI.flags = 0;
+	viewportStateCI.viewportCount = 1;
+	viewportStateCI.pViewports = &viewport;
+	viewportStateCI.scissorCount = 1;
+	viewportStateCI.pScissors = &scissor;
 
 	const VkPipelineRasterizationStateCreateInfo& rasterizerState = book_util::GetDefaultRasterizerState();
 
@@ -658,127 +609,131 @@ void CubemapRenderingApp::CreatePipeline()
 	pipelineDynamicStateCI.dynamicStateCount = uint32_t(dynamicStates.size());
 	pipelineDynamicStateCI.pDynamicStates = dynamicStates.data();
 
-	VkRenderPass renderPass = GetRenderPass("default");
-
 	// パイプライン構築
-	const VkPipelineLayout& layout = GetPipelineLayout("u1");
-
 	VkGraphicsPipelineCreateInfo pipelineCI{};
 	pipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCI.pNext = nullptr;
+	pipelineCI.flags = 0;
+	pipelineCI.stageCount = uint32_t(shaderStages.size());
+	pipelineCI.pStages = shaderStages.data();
 	pipelineCI.pVertexInputState = &pipelineVisCI;
 	pipelineCI.pInputAssemblyState = &inputAssemblyCI;
 	pipelineCI.pTessellationState = nullptr;
-	pipelineCI.pViewportState = &viewportCI;
+	pipelineCI.pViewportState = &viewportStateCI;
 	pipelineCI.pRasterizationState = &rasterizerState;
 	pipelineCI.pMultisampleState = &multisampleCI;
 	pipelineCI.pDepthStencilState = &dsState;
 	pipelineCI.pColorBlendState = &colorBlendStateCI;
 	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
-	pipelineCI.layout = layout;
-	pipelineCI.renderPass = renderPass;
+	pipelineCI.layout = GetPipelineLayout(layoutName);
+	pipelineCI.renderPass = GetRenderPass(renderPassName);
 	pipelineCI.subpass = 0;
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCI.basePipelineIndex = 0;
 
-	// フラットシェーディング用のパイプラインの構築
+	VkPipeline pipeline = VK_NULL_HANDLE;
+	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
+	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
+	return pipeline;
+}
+
+void CubemapRenderingApp::PrepareCenterTeapotDescriptos()
+{
+	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1t1");
+	uint32_t imageCount = m_swapchain->GetImageCount();
+
+	uint32_t bufferSize = uint32_t(sizeof(ShaderParameters));
+	m_centerTeapot.sceneUBO = CreateUniformBuffers(bufferSize, imageCount);
+
+	// ファイルから読み込んだキューブマップを使用して描画するパスのディスクリプタを準備
+	m_centerTeapot.dsCubemapStatic.resize(imageCount);
+	for (uint32_t i = 0; i < imageCount; ++i)
 	{
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-		{
-			book_util::LoadShader(m_device, "flatVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-			book_util::LoadShader(m_device, "flatGS.spv", VK_SHADER_STAGE_GEOMETRY_BIT),
-			book_util::LoadShader(m_device, "flatFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
+		m_centerTeapot.dsCubemapStatic[i] = ds;
+
+		VkDescriptorBufferInfo sceneUBO{};
+		sceneUBO.buffer = m_centerTeapot.sceneUBO[i].buffer;
+		sceneUBO.offset = 0;
+		sceneUBO.range = VK_WHOLE_SIZE;
+
+		VkDescriptorImageInfo staticCubemap{};
+		staticCubemap.sampler = m_cubemapSampler;
+		staticCubemap.imageView = m_staticCubemap.view;
+		staticCubemap.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		std::vector<VkWriteDescriptorSet> writeSet = {
+			book_util::CreateWriteDescriptorSet(
+				ds,
+				0,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				&sceneUBO
+			),
+			book_util::CreateWriteDescriptorSet(
+				ds,
+				1,
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				&staticCubemap
+			)
 		};
 
-		pipelineCI.stageCount = uint32_t(shaderStages.size());
-		pipelineCI.pStages = shaderStages.data();
-
-		VkPipeline pipeline;
-		VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
-		ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
-
-		book_util::DestroyShaderModules(m_device, shaderStages);
-		m_pipelines[FlatShaderPipeline] = pipeline;
+		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
 	}
 
-	// 法線描画用のパイプラインの構築
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-		{
-			book_util::LoadShader(m_device, "drawNormalVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-			book_util::LoadShader(m_device, "drawNormalGS.spv", VK_SHADER_STAGE_GEOMETRY_BIT),
-			book_util::LoadShader(m_device, "drawNormalFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
-		};
+		book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+		book_util::LoadShader(m_device, "shaderFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+	};
 
-		pipelineCI.stageCount = uint32_t(shaderStages.size());
-		pipelineCI.pStages = shaderStages.data();
-
-		VkPipeline pipeline;
-		VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
-		ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
-
-		book_util::DestroyShaderModules(m_device, shaderStages);
-		m_pipelines[NormalVectorPipeline] = pipeline;
-	}
-
-	// 法線描画用のモデル本体描画パイプラインの構築
-	{
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-		{
-			book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-			book_util::LoadShader(m_device, "shaderFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
-		};
-
-		pipelineCI.stageCount = uint32_t(shaderStages.size());
-		pipelineCI.pStages = shaderStages.data();
-
-		VkPipeline pipeline;
-		VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
-		ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
-
-		book_util::DestroyShaderModules(m_device, shaderStages);
-		m_pipelines[SmoothShaderPipeline] = pipeline;
-	}
+	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
+	m_centerTeapot.pipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u1t1", shaderStages);
+	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
 void CubemapRenderingApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
-	VkDescriptorSetLayoutBinding descSetLayoutBindings[1];
+	std::array<VkDescriptorSetLayoutBinding, 2> descSetLayoutBindings;
 
-	VkDescriptorSetLayoutBinding bindingUBO{};
-	bindingUBO.binding = 0;
-	bindingUBO.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindingUBO.stageFlags = VK_SHADER_STAGE_ALL;
-	bindingUBO.descriptorCount = 1;
-	descSetLayoutBindings[0] = bindingUBO;
+	// 0: uniformBuffer, 1: texture(+sampler)
+	descSetLayoutBindings[0].binding = 0;
+	descSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descSetLayoutBindings[0].descriptorCount = 1;
+	descSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_ALL;
+	descSetLayoutBindings[0].pImmutableSamplers = nullptr;
+	descSetLayoutBindings[1].binding = 1;
+	descSetLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descSetLayoutBindings[1].descriptorCount = 1;
+	descSetLayoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	descSetLayoutBindings[1].pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
 	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	descSetLayoutCI.pNext = nullptr;
-	descSetLayoutCI.bindingCount = _countof(descSetLayoutBindings);
-	descSetLayoutCI.pBindings = descSetLayoutBindings;
+	descSetLayoutCI.bindingCount = uint32_t(descSetLayoutBindings.size());
+	descSetLayoutCI.pBindings = descSetLayoutBindings.data();
 
 	VkDescriptorSetLayout dsLayout = VK_NULL_HANDLE;
 
 	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
 	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
-	RegisterLayout("u1", dsLayout);
-	dsLayout = GetDescriptorSetLayout("u1");
+	RegisterLayout("u1t1", dsLayout);
+	dsLayout = GetDescriptorSetLayout("u1t1");
 
 	// パイプラインレイアウト
-	VkPipelineLayoutCreateInfo pipelineLayoutCI{};
-	pipelineLayoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutCI.pNext = nullptr;
-	pipelineLayoutCI.flags = 0;
-	pipelineLayoutCI.setLayoutCount = 1;
-	pipelineLayoutCI.pSetLayouts = &dsLayout;
-	pipelineLayoutCI.pushConstantRangeCount = 0;
-	pipelineLayoutCI.pPushConstantRanges = nullptr;
+	VkPipelineLayoutCreateInfo layoutCI{};
+	layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutCI.pNext = nullptr;
+	layoutCI.flags = 0;
+	layoutCI.setLayoutCount = 1;
+	layoutCI.pSetLayouts = &dsLayout;
+	layoutCI.pushConstantRangeCount = 0;
+	layoutCI.pPushConstantRanges = nullptr;
 
 	VkPipelineLayout layout = VK_NULL_HANDLE;
-	result = vkCreatePipelineLayout(m_device, &pipelineLayoutCI, nullptr, &layout);
+	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
 	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
-	RegisterLayout("u1", layout);
+	RegisterLayout("u1t1", layout);
 }
 

@@ -28,8 +28,6 @@ private:
 	};
 
 	std::vector<FrameCommandBuffer> m_commandBuffers;
-	std::vector<VkDescriptorSet> m_descriptorSets;
-	std::unordered_map<std::string, VkPipeline> m_pipelines;
 
 	struct ShaderParameters
 	{
@@ -37,31 +35,38 @@ private:
 		glm::mat4 view;
 		glm::mat4 proj;
 		glm::vec4 lightDir;
+		glm::vec4 cameraPos;
 	};
 
 	Camera m_camera;
 	ModelData m_teapot;
 	ImageObject m_staticCubemap;
-	std::vector<BufferObject> m_uniformBuffers;
+	VkSampler m_cubemapSampler = VK_NULL_HANDLE;
 
-	const std::string FlatShaderPipeline = "flatShade";
-	const std::string SmoothShaderPipeline = "smoothShade";
-	const std::string NormalVectorPipeline = "drawNormalVector";
+	struct CenterTeapot
+	{
+		std::vector<VkDescriptorSet> dsCubemapStatic;
+		std::vector<BufferObject> sceneUBO;
+		VkPipeline pipeline;
+	};
+	CenterTeapot m_centerTeapot;
+
+	uint32_t m_imageIndex = 0;
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
 	void PrepareSceneResource();
 	ImageObject LoadCubeTextureFromFile(const char* faceFiles[6]);
-	void PrepareTeapot();
-	void CreatePipeline();
+	VkPipeline CreateRenderTeapotPipeline(
+		const std::string& renderPassName,
+		uint32_t width,
+		uint32_t height,
+		const std::string& layoutName,
+		const std::vector<VkPipelineShaderStageCreateInfo> shaderStages
+	);
+	void PrepareCenterTeapotDescriptos();
+	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
-
-	enum DrawMode
-	{
-		DrawMode_Flat, // = 0
-		DrawMode_NormalVector,
-	};
-	DrawMode m_mode = DrawMode_Flat;
 };
 
