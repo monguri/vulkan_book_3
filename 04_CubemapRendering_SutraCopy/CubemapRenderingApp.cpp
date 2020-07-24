@@ -69,6 +69,13 @@ void CubemapRenderingApp::Cleanup()
 			DeallocateDescriptorset(ds);
 		}
 		m_centerTeapot.dsCubemapStatic.clear();
+
+		for (const VkDescriptorSet& ds : m_centerTeapot.dsCubemapRendered)
+		{
+			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
+			DeallocateDescriptorset(ds);
+		}
+		m_centerTeapot.dsCubemapRendered.clear();
 	}
 
 	DestroyBuffer(m_teapot.resVertexBuffer);
@@ -76,6 +83,7 @@ void CubemapRenderingApp::Cleanup()
 
 
 	DestroyImage(m_staticCubemap);
+	DestroyImage(m_cubemapRendered);
 	vkDestroySampler(m_device, m_cubemapSampler, nullptr);
 
 	DestroyImage(m_depthBuffer);
@@ -323,6 +331,52 @@ void CubemapRenderingApp::PrepareSceneResource()
 	};
 	m_staticCubemap = LoadCubeTextureFromFile(files);
 
+	// 描画先となるキューブマップの準備
+	VkImageCreateInfo imageCI{};
+	imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCI.pNext = nullptr;
+	imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Cubemapとして扱うため
+	imageCI.imageType = VK_IMAGE_TYPE_2D;
+	imageCI.format = VK_FORMAT_R8G8B8A8_UNORM; // 固定
+	imageCI.extent.width = CubeEdge;
+	imageCI.extent.height = CubeEdge;
+	imageCI.extent.depth = 1;
+	imageCI.mipLevels = 1;
+	imageCI.arrayLayers = 6; // Cubemapとして扱うため
+	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageCI.queueFamilyIndexCount = 0;
+	imageCI.pQueueFamilyIndices = nullptr;
+	imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	VkResult result = vkCreateImage(m_device, &imageCI, nullptr, &m_cubemapRendered.image);
+	ThrowIfFailed(result, "vkCreateImage Failed.");
+
+	m_cubemapRendered.memory = AllocateMemory(m_cubemapRendered.image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	result = vkBindImageMemory(m_device, m_cubemapRendered.image, m_cubemapRendered.memory, 0);
+	ThrowIfFailed(result, "vkBindImageMemory Failed.");
+
+	VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	VkImageViewCreateInfo viewCI{};
+	viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCI.pNext = nullptr;
+	viewCI.flags = 0;
+	viewCI.image = m_cubemapRendered.image;
+	viewCI.viewType = VK_IMAGE_VIEW_TYPE_CUBE; // Cubemap用
+	viewCI.format = imageCI.format;
+	viewCI.components = book_util::DefaultComponentMapping();
+	viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewCI.subresourceRange.baseMipLevel = 0;
+	viewCI.subresourceRange.levelCount = 1;
+	viewCI.subresourceRange.baseArrayLayer = 0;
+	viewCI.subresourceRange.layerCount = 1; // 書き込みなので1
+
+	result = vkCreateImageView(m_device, &viewCI, nullptr, &m_cubemapRendered.view);
+	ThrowIfFailed(result, "vkCreateImageView Failed.");
+
 	// サンプラーの準備。これは2Dテクスチャのときと何も変わらない
 	VkSamplerCreateInfo samplerCI{};
 	samplerCI.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -343,7 +397,7 @@ void CubemapRenderingApp::PrepareSceneResource()
 	samplerCI.maxLod = 1.0f;
 	samplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 	samplerCI.unnormalizedCoordinates = VK_FALSE;
-	VkResult result = vkCreateSampler(m_device, &samplerCI, nullptr, &m_cubemapSampler);
+	result = vkCreateSampler(m_device, &samplerCI, nullptr, &m_cubemapSampler);
 	ThrowIfFailed(result, "vkCreateSampler Failed.");
 }
 
@@ -681,6 +735,40 @@ void CubemapRenderingApp::PrepareCenterTeapotDescriptos()
 		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
 	}
 
+	// 動的に描画したキューブマップを使用して描画するパスのディスクリプタを準備
+	m_centerTeapot.dsCubemapRendered.resize(imageCount);
+	for (uint32_t i = 0; i < imageCount; ++i)
+	{
+		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
+		m_centerTeapot.dsCubemapRendered[i] = ds;
+
+		VkDescriptorBufferInfo sceneUBO{};
+		sceneUBO.buffer = m_centerTeapot.sceneUBO[i].buffer;
+		sceneUBO.offset = 0;
+		sceneUBO.range = VK_WHOLE_SIZE;
+
+		VkDescriptorImageInfo renderedCubemap{};
+		renderedCubemap.sampler = m_cubemapSampler;
+		renderedCubemap.imageView = m_cubemapRendered.view;
+		renderedCubemap.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		std::vector<VkWriteDescriptorSet> writeSet = {
+			book_util::CreateWriteDescriptorSet(
+				ds,
+				0,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				&sceneUBO
+			),
+			book_util::CreateWriteDescriptorSet(
+				ds,
+				1,
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				&renderedCubemap
+			)
+		};
+
+		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
+	}
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
 		book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),

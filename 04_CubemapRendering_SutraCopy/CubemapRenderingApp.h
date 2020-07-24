@@ -41,17 +41,21 @@ private:
 	Camera m_camera;
 	ModelData m_teapot;
 	ImageObject m_staticCubemap;
+	ImageObject m_cubemapRendered;
 	VkSampler m_cubemapSampler = VK_NULL_HANDLE;
 
 	struct CenterTeapot
 	{
 		std::vector<VkDescriptorSet> dsCubemapStatic;
+		std::vector<VkDescriptorSet> dsCubemapRendered;
 		std::vector<BufferObject> sceneUBO;
 		VkPipeline pipeline;
 	};
 	CenterTeapot m_centerTeapot;
 
 	uint32_t m_imageIndex = 0;
+
+	const uint32_t CubeEdge = 512;
 
 	enum Mode
 	{
