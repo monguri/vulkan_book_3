@@ -14,7 +14,7 @@ layout(set=0, binding=0)
 uniform CubemapEnvParameters
 {
 	mat4 world[6];
-	mat4 colors[6];
+	vec4 colors[6];
 };
 
 layout(set=0, binding=1)
