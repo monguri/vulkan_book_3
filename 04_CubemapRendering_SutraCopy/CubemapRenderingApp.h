@@ -49,7 +49,7 @@ private:
 	struct TeapotInstanceParameters
 	{
 		glm::mat4 world[6];
-		glm::vec4 color[6];
+		glm::vec4 colors[6];
 	};
 
 	struct ViewProjMatrices

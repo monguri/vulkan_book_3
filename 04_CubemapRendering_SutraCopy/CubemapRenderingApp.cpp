@@ -645,12 +645,12 @@ void CubemapRenderingApp::PrepareSceneResource()
 	params.world[3] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -5.0f, 0.0f));
 	params.world[4] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f));
 	params.world[5] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
-	params.color[0] = glm::vec4(0.6f, 1.0f, 0.6f, 1.0f);
-	params.color[1] = glm::vec4(0.0f, 0.75f, 1.0f, 1.0f);
-	params.color[2] = glm::vec4(0.0f, 0.5f, 1.0f, 1.0f);
-	params.color[3] = glm::vec4(0.5f, 0.5f, 0.25f, 1.0f);
-	params.color[4] = glm::vec4(1.0f, 0.1f, 0.6f, 1.0f);
-	params.color[5] = glm::vec4(1.0f, 0.55f, 0.0f, 1.0f);
+	params.colors[0] = glm::vec4(0.6f, 1.0f, 0.6f, 1.0f);
+	params.colors[1] = glm::vec4(0.0f, 0.75f, 1.0f, 1.0f);
+	params.colors[2] = glm::vec4(0.0f, 0.5f, 1.0f, 1.0f);
+	params.colors[3] = glm::vec4(0.5f, 0.5f, 0.25f, 1.0f);
+	params.colors[4] = glm::vec4(1.0f, 0.1f, 0.6f, 1.0f);
+	params.colors[5] = glm::vec4(1.0f, 0.55f, 0.0f, 1.0f);
 
 	WriteToHostVisibleMemory(m_cubemapEnvUniform.memory, bufferSize, &params);
 
