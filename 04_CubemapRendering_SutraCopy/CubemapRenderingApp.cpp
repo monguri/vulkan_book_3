@@ -50,6 +50,7 @@ void CubemapRenderingApp::Prepare()
 	PrepareRenderTargetForMultiPass();
 
 	PrepareCenterTeapotDescriptos();
+	PrepareAroundTeapotDescriptos();
 
 	// ティーポットのモデルをロード
 	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
@@ -61,6 +62,45 @@ void CubemapRenderingApp::Cleanup()
 {
 	DestroyBuffer(m_teapot.resVertexBuffer);
 	DestroyBuffer(m_teapot.resIndexBuffer);
+
+	// AroundTeapots(Main)
+	{
+		vkDestroyPipeline(m_device, m_aroundTeapotsToMain.pipeline, nullptr);
+
+		for (const BufferObject& bufferObj : m_aroundTeapotsToMain.cameraViewUniform)
+		{
+			DestroyBuffer(bufferObj);
+		}
+		m_aroundTeapotsToMain.cameraViewUniform.clear();
+
+		for (const VkDescriptorSet& ds : m_aroundTeapotsToMain.descriptors)
+		{
+			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
+			DeallocateDescriptorset(ds);
+		}
+		m_aroundTeapotsToMain.descriptors.clear();
+	}
+
+	// AroundTeapots(Face)
+	{
+		vkDestroyPipeline(m_device, m_aroundTeapotsToFace.pipeline, nullptr);
+
+		for (int face = 0; face < 6; ++face)
+		{
+			for (const BufferObject& bufferObj : m_aroundTeapotsToFace.cameraViewUniform[face])
+			{
+				DestroyBuffer(bufferObj);
+			}
+			m_aroundTeapotsToFace.cameraViewUniform[face].clear();
+
+			for (const VkDescriptorSet& ds : m_aroundTeapotsToFace.descriptors[face])
+			{
+				// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
+				DeallocateDescriptorset(ds);
+			}
+			m_aroundTeapotsToFace.descriptors[face].clear();
+		}
+	}
 
 	// CenterTeapot
 	{
@@ -162,11 +202,10 @@ void CubemapRenderingApp::Render()
 	}
 
 	{
+		// 中央ティーポット用の定数バッファへの値の設定
 		ShaderParameters shaderParam{};
 		shaderParam.world = glm::mat4(1.0f);
-
 		shaderParam.view = m_camera.GetViewMatrix();
-
 		const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 		shaderParam.proj = glm::perspectiveRH(
 			glm::radians(45.0f),
@@ -174,16 +213,51 @@ void CubemapRenderingApp::Render()
 			0.1f,
 			1000.0f
 		);
-
 		shaderParam.lightDir = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
 		shaderParam.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
+		WriteToHostVisibleMemory(m_centerTeapot.sceneUBO[m_imageIndex].memory, sizeof(shaderParam), &shaderParam);
 
-		const BufferObject& ubo = m_centerTeapot.sceneUBO[m_imageIndex];
-		void* p = nullptr;
-		result = vkMapMemory(m_device, ubo.memory, 0, VK_WHOLE_SIZE, 0, &p);
-		ThrowIfFailed(result, "vkMapMemory Failed.");
-		memcpy(p, &shaderParam, sizeof(ShaderParameters));
-		vkUnmapMemory(m_device, ubo.memory);
+		// 周辺ティーポットのキューブマップフェイス描画用の定数バッファへの値の設定
+		// 原点にあるカメラがキューブマップの各面の方を向くようにする
+		glm::vec3 eye(0.0f, 0.0f, 0.0f);
+		glm::vec3 dir[] = {
+			glm::vec3(1.0f, 0.0f, 0.0f),
+			glm::vec3(-1.0f, 0.0f, 0.0f),
+			glm::vec3(0.0f, 1.0f, 0.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f),
+			glm::vec3(0.0f, 0.0f, 1.0f),
+			glm::vec3(0.0f, 0.0f, -1.0f),
+		};
+		//TODO:このupの方向についてはとりあえずそういうものかと思うようにする
+		glm::vec3 up[] = {
+			glm::vec3(0.0f, -1.0f, 0.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f),
+			glm::vec3(0.0f, 0.0f, 1.0f),
+			glm::vec3(0.0f, 0.0f, -1.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f),
+			glm::vec3(0.0f, -1.0f, 0.0f),
+		};
+		for (int i = 0; i < 6; ++i)
+		{
+			ViewProjMatrices matrices;
+			matrices.view = glm::lookAt(eye, dir[i], up[i]);
+			matrices.proj = glm::perspectiveRH(
+				glm::radians(45.0f),
+				float(CubeEdge) / float(CubeEdge),
+				0.1f,
+				100.0f
+			);
+			matrices.proj = shaderParam.proj;
+			matrices.lightDir = shaderParam.lightDir;
+			WriteToHostVisibleMemory(m_aroundTeapotsToFace.cameraViewUniform[i][m_imageIndex].memory, sizeof(matrices), &matrices);
+		}
+
+		// 周辺ティーポットのメイン描画用の定数バッファへの値の設定
+		ViewProjMatrices view;
+		view.view = shaderParam.view;
+		view.proj = shaderParam.proj;
+		view.lightDir = shaderParam.lightDir;
+		WriteToHostVisibleMemory(m_aroundTeapotsToMain.cameraViewUniform[m_imageIndex].memory, sizeof(view), &view);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -272,6 +346,65 @@ void CubemapRenderingApp::Render()
 
 void CubemapRenderingApp::RenderCubemapFaces(const VkCommandBuffer& command)
 {
+	VkCommandBufferBeginInfo commandBI{};
+	commandBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	commandBI.pNext = nullptr;
+	commandBI.flags = 0;
+	commandBI.pInheritanceInfo = nullptr;
+	VkResult result = vkBeginCommandBuffer(command, &commandBI);
+	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
+
+	std::array<VkClearValue, 2> clearValue = {
+		{
+			{0.5f, 0.75f, 1.0f, 0.0f}, // for Color
+			{1.0f, 0}, // for Depth
+		}
+	};
+
+	VkViewport viewport{};
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = float(CubeEdge);
+	viewport.height = float(CubeEdge);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor{};
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = CubeEdge;
+	scissor.extent.height = CubeEdge;
+
+	VkRenderPassBeginInfo rpBI{};
+	rpBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	rpBI.pNext = nullptr;
+	rpBI.renderPass = m_cubeFaceScene.renderPass;
+	rpBI.framebuffer = VK_NULL_HANDLE; // 6面のそれぞれの面のフレームバッファにループ内で設定する
+	rpBI.renderArea = scissor;
+	rpBI.clearValueCount = uint32_t(clearValue.size());
+	rpBI.pClearValues = clearValue.data();
+
+	const VkPipelineLayout& pipelineLayout = GetPipelineLayout("u2");
+
+	for (int face = 0; face < 6; ++face)
+	{
+		rpBI.framebuffer = m_cubeFaceScene.fbFaces[face];
+
+		vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
+
+		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_aroundTeapotsToFace.pipeline);
+		vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &m_aroundTeapotsToFace.descriptors[face][m_imageIndex], 0, nullptr);
+
+		vkCmdSetScissor(command, 0, 1, &scissor);
+		vkCmdSetViewport(command, 0, 1, &viewport);
+
+		vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+		VkDeviceSize offsets[] = {0};
+		vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
+		vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
+
+		vkCmdEndRenderPass(command);
+	}
 }
 
 void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
@@ -289,9 +422,9 @@ void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdSetScissor(command, 0, 1, &scissor);
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
+	// 中央ティーポットの描画
 	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_centerTeapot.pipeline);
 
-	const VkPipelineLayout& pipelineLayout = GetPipelineLayout("u1t1");
 	VkDescriptorSet ds = VK_NULL_HANDLE;
 	switch (m_mode)
 	{
@@ -306,11 +439,20 @@ void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
 			break;
 	}
 
+	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1t1");
 	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
 	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
 	vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
+
+	// 周囲の多数のティーポットの描画
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_aroundTeapotsToMain.pipeline);
+	pipelineLayout = GetPipelineLayout("u2");
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &m_aroundTeapotsToMain.descriptors[m_imageIndex], 0, nullptr);
+	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
+	vkCmdDrawIndexed(command, m_teapot.indexCount, 6, 0, 0, 0); // 6個描画する
 }
 
 void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
@@ -331,10 +473,60 @@ void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
 
 void CubemapRenderingApp::BarrierRTToTexture(const VkCommandBuffer& command)
 {
+	VkImageMemoryBarrier imageBarrier{};
+	imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imageBarrier.pNext = nullptr;
+	imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	imageBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageBarrier.image = m_cubemapRendered.image;
+	imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageBarrier.subresourceRange.baseMipLevel = 0;
+	imageBarrier.subresourceRange.levelCount = 1;
+	imageBarrier.subresourceRange.baseArrayLayer = 0;
+	imageBarrier.subresourceRange.layerCount = 6; // キューブマップ
+
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		0, // dependencyFlags
+		0, nullptr, // memoryBarrier
+		0, nullptr, // bufferMemoryBarrier
+		1, &imageBarrier // imageMemoryBarrier
+	);
 }
 
 void CubemapRenderingApp::BarrierTextureToRT(const VkCommandBuffer& command)
 {
+	VkImageMemoryBarrier imageBarrier{};
+	imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imageBarrier.pNext = nullptr;
+	imageBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	imageBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	imageBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageBarrier.image = m_cubemapRendered.image;
+	imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageBarrier.subresourceRange.baseMipLevel = 0;
+	imageBarrier.subresourceRange.levelCount = 1;
+	imageBarrier.subresourceRange.baseArrayLayer = 0;
+	imageBarrier.subresourceRange.layerCount = 6; // キューブマップ
+
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, // dependencyFlags
+		0, nullptr, // memoryBarrier
+		0, nullptr, // bufferMemoryBarrier
+		1, &imageBarrier // imageMemoryBarrier
+	);
 }
 
 void CubemapRenderingApp::PrepareDepthbuffer()
@@ -384,7 +576,7 @@ bool CubemapRenderingApp::OnSizeChanged(uint32_t width, uint32_t height)
 
 void CubemapRenderingApp::PrepareSceneResource()
 {
-	// 性的なキューブマップの準備
+	// 静的なキューブマップの準備
 	const char* files[6] = {
 		"posx.jpg",
 		"negx.jpg",
@@ -440,6 +632,27 @@ void CubemapRenderingApp::PrepareSceneResource()
 
 	result = vkCreateImageView(m_device, &viewCI, nullptr, &m_cubemapRendered.view);
 	ThrowIfFailed(result, "vkCreateImageView Failed.");
+
+	// 周辺へのティーポットのインスタンス配置用のユニフォームバッファの準備
+	// 値を動的に変更しないのでダブルバッファ用に2つ作る必要がない
+	uint32_t bufferSize = uint32_t(sizeof(TeapotInstanceParameters));
+	m_cubemapEnvUniform = CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	TeapotInstanceParameters params{};
+	params.world[0] = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 0.0f, 0.0f));
+	params.world[1] = glm::translate(glm::mat4(1.0f), glm::vec3(-5.0f, 0.0f, 0.0f));
+	params.world[2] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 5.0f, 0.0f));
+	params.world[3] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -5.0f, 0.0f));
+	params.world[4] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f));
+	params.world[5] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+	params.color[0] = glm::vec4(0.6f, 1.0f, 0.6f, 1.0f);
+	params.color[1] = glm::vec4(0.0f, 0.75f, 1.0f, 1.0f);
+	params.color[2] = glm::vec4(0.0f, 0.5f, 1.0f, 1.0f);
+	params.color[3] = glm::vec4(0.5f, 0.5f, 0.25f, 1.0f);
+	params.color[4] = glm::vec4(1.0f, 0.1f, 0.6f, 1.0f);
+	params.color[5] = glm::vec4(1.0f, 0.55f, 0.0f, 1.0f);
+
+	WriteToHostVisibleMemory(m_cubemapEnvUniform.memory, bufferSize, &params);
 
 	// サンプラーの準備。これは2Dテクスチャのときと何も変わらない
 	VkSamplerCreateInfo samplerCI{};
@@ -844,6 +1057,108 @@ void CubemapRenderingApp::PrepareCenterTeapotDescriptos()
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
+void CubemapRenderingApp::PrepareAroundTeapotDescriptos()
+{
+	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u2");
+	uint32_t imageCount = m_swapchain->GetImageCount();
+
+	// キューブマップへ描画するための定数バッファを準備
+	uint32_t bufferSize = uint32_t(sizeof(ViewProjMatrices));
+	for (int face = 0; face < 6; ++face)
+	{
+		m_aroundTeapotsToFace.cameraViewUniform[face] = CreateUniformBuffers(bufferSize, imageCount);
+	}
+
+	// メインの描画パスで描画するための定数バッファを準備
+	m_aroundTeapotsToMain.cameraViewUniform = CreateUniformBuffers(bufferSize, imageCount);
+
+	// キューブマップへ描画するためのディスクリプタを準備
+	for (int face = 0; face < 6; ++face)
+	{
+		m_aroundTeapotsToFace.descriptors[face].resize(imageCount);
+		for (uint32_t i = 0; i < imageCount; ++i)
+		{
+			const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
+			m_aroundTeapotsToFace.descriptors[face][i] = ds;
+
+			VkDescriptorBufferInfo instanceUbo{};
+			instanceUbo.buffer = m_cubemapEnvUniform.buffer;
+			instanceUbo.offset = 0;
+			instanceUbo.range = VK_WHOLE_SIZE;
+
+			VkDescriptorBufferInfo viewProjParamUbo{};
+			viewProjParamUbo.buffer = m_aroundTeapotsToFace.cameraViewUniform[face][i].buffer;
+			viewProjParamUbo.offset = 0;
+			viewProjParamUbo.range = VK_WHOLE_SIZE;
+
+			std::vector<VkWriteDescriptorSet> writeSet = {
+				book_util::CreateWriteDescriptorSet(
+					ds,
+					0,
+					VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					&instanceUbo
+				),
+				book_util::CreateWriteDescriptorSet(
+					ds,
+					1,
+					VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+					&viewProjParamUbo
+				)
+			};
+
+			vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
+		}
+	}
+
+	// メインの描画パスで描画するためのディスクリプタを準備
+	m_aroundTeapotsToMain.descriptors.resize(imageCount);
+	for (uint32_t i = 0; i < imageCount; ++i)
+	{
+		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
+		m_aroundTeapotsToMain.descriptors[i] = ds;
+
+		VkDescriptorBufferInfo instanceUbo{};
+		instanceUbo.buffer = m_cubemapEnvUniform.buffer;
+		instanceUbo.offset = 0;
+		instanceUbo.range = VK_WHOLE_SIZE;
+
+		VkDescriptorBufferInfo viewProjParamUbo{};
+		viewProjParamUbo.buffer = m_aroundTeapotsToMain.cameraViewUniform[i].buffer;
+		viewProjParamUbo.offset = 0;
+		viewProjParamUbo.range = VK_WHOLE_SIZE;
+
+		std::vector<VkWriteDescriptorSet> writeSet = {
+			book_util::CreateWriteDescriptorSet(
+				ds,
+				0,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				&instanceUbo
+			),
+			book_util::CreateWriteDescriptorSet(
+				ds,
+				1,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				&viewProjParamUbo
+			)
+		};
+
+		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
+	}
+
+	// マルチ描画パス
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
+	{
+		book_util::LoadShader(m_device, "teapotVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+		book_util::LoadShader(m_device, "teapotFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+	};
+	m_aroundTeapotsToFace.pipeline = CreateRenderTeapotPipeline("cubemap", CubeEdge, CubeEdge, "u2", shaderStages);
+
+	// メイン描画パス。マルチ描画パスとシェーダは変えない
+	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
+	m_aroundTeapotsToMain.pipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u2", shaderStages);
+	book_util::DestroyShaderModules(m_device, shaderStages);
+}
+
 void CubemapRenderingApp::PrepareRenderTargetForMultiPass()
 {
 	VkResult result = VK_SUCCESS;
@@ -941,7 +1256,7 @@ void CubemapRenderingApp::CreateSampleLayouts()
 	// ディスクリプタセットレイアウト
 	std::array<VkDescriptorSetLayoutBinding, 2> descSetLayoutBindings;
 
-	// 0: uniformBuffer, 1: texture(+sampler)
+	// 0: uniformBuffer, 1: texture(+sampler) を使用するシェーダ用レイアウト
 	descSetLayoutBindings[0].binding = 0;
 	descSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	descSetLayoutBindings[0].descriptorCount = 1;
@@ -964,9 +1279,16 @@ void CubemapRenderingApp::CreateSampleLayouts()
 	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
 	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
 	RegisterLayout("u1t1", dsLayout);
-	dsLayout = GetDescriptorSetLayout("u1t1");
+
+	// 0: uniformBuffer, 1: uniformBuffer を使用するシェーダ用レイアウト
+	descSetLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descSetLayoutBindings[1].stageFlags = VK_SHADER_STAGE_ALL;
+	result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
+	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
+	RegisterLayout("u2", dsLayout);
 
 	// パイプラインレイアウト
+	dsLayout = GetDescriptorSetLayout("u1t1");
 	VkPipelineLayoutCreateInfo layoutCI{};
 	layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layoutCI.pNext = nullptr;
@@ -980,5 +1302,12 @@ void CubemapRenderingApp::CreateSampleLayouts()
 	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
 	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
 	RegisterLayout("u1t1", layout);
+
+	dsLayout = GetDescriptorSetLayout("u2");
+	layoutCI.pSetLayouts = &dsLayout;
+
+	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
+	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
+	RegisterLayout("u2", layout);
 }
 

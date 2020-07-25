@@ -29,6 +29,14 @@ private:
 
 	std::vector<FrameCommandBuffer> m_commandBuffers;
 
+	uint32_t m_imageIndex = 0;
+
+	Camera m_camera;
+	ModelData m_teapot;
+	ImageObject m_staticCubemap;
+	ImageObject m_cubemapRendered;
+	VkSampler m_cubemapSampler = VK_NULL_HANDLE;
+
 	struct ShaderParameters
 	{
 		glm::mat4 world;
@@ -38,12 +46,41 @@ private:
 		glm::vec4 cameraPos;
 	};
 
-	Camera m_camera;
-	ModelData m_teapot;
-	ImageObject m_staticCubemap;
-	ImageObject m_cubemapRendered;
-	VkSampler m_cubemapSampler = VK_NULL_HANDLE;
+	struct TeapotInstanceParameters
+	{
+		glm::mat4 world[6];
+		glm::vec4 color[6];
+	};
 
+	struct ViewProjMatrices
+	{
+		glm::mat4 view;
+		glm::mat4 proj;
+		glm::vec4 lightDir;
+	};
+
+	BufferObject m_cubemapEnvUniform;
+
+	// 周辺ティーポット（To Main）
+	struct AroundTeapotsToMainScene
+	{
+		VkPipeline pipeline;
+		std::vector<BufferObject> cameraViewUniform;
+		std::vector<VkDescriptorSet> descriptors;
+	};
+	AroundTeapotsToMainScene m_aroundTeapotsToMain;
+
+	// TODO:なぜこれはCubeFaceSceneとひとまとめにしないのか？
+	// 周辺ティーポット（To CubemapFace）
+	struct AroundTeapotsToCubeFaceScene
+	{
+		VkPipeline pipeline;
+		std::vector<BufferObject> cameraViewUniform[6];
+		std::vector<VkDescriptorSet> descriptors[6];
+	};
+	AroundTeapotsToCubeFaceScene m_aroundTeapotsToFace;
+
+	// 中心のティーポット
 	struct CenterTeapot
 	{
 		std::vector<VkDescriptorSet> dsCubemapStatic;
@@ -61,8 +98,6 @@ private:
 		VkRenderPass renderPass;
 	};
 	CubeFaceScene m_cubeFaceScene;
-
-	uint32_t m_imageIndex = 0;
 
 	const uint32_t CubeEdge = 512;
 	const VkFormat CubemapFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -89,6 +124,7 @@ private:
 
 	void PrepareRenderTargetForMultiPass();
 	void PrepareCenterTeapotDescriptos();
+	void PrepareAroundTeapotDescriptos();
 	void RenderCubemapFaces(const VkCommandBuffer& command);
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);

@@ -24,30 +24,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader\drawNormalFS.frag">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\drawNormalGS.geom">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\drawNormalVS.vert">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\flatFS.frag">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\flatGS.geom">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\flatVS.vert">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\shaderFS.frag">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\shaderVS.vert">
-      <Filter>Shader</Filter>
-    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -128,5 +104,21 @@
     <ClInclude Include="CubemapRenderingApp.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Shader\drawNormalFS.frag" />
+    <CustomBuild Include="Shader\drawNormalGS.geom" />
+    <CustomBuild Include="Shader\drawNormalVS.vert" />
+    <CustomBuild Include="Shader\flatFS.frag" />
+    <CustomBuild Include="Shader\flatGS.geom" />
+    <CustomBuild Include="Shader\flatVS.vert" />
+    <CustomBuild Include="Shader\shaderFS.frag" />
+    <CustomBuild Include="Shader\shaderVS.vert" />
+    <CustomBuild Include="Shader\teapotFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\teapotVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>
