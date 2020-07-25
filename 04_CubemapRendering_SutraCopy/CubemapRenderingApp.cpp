@@ -401,7 +401,7 @@ void CubemapRenderingApp::RenderCubemapFaces(const VkCommandBuffer& command)
 		vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 		VkDeviceSize offsets[] = {0};
 		vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
-		vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
+		vkCmdDrawIndexed(command, m_teapot.indexCount, 6, 0, 0, 0);
 
 		vkCmdEndRenderPass(command);
 	}
