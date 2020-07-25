@@ -17,7 +17,7 @@ uniform CubemapEnvParameters
 	mat4 colors[6];
 };
 
-layout(set=0, binding=0)
+layout(set=0, binding=1)
 uniform ViewProjMatrices
 {
 	mat4 view;
