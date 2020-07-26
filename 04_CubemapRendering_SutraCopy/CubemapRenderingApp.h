@@ -59,6 +59,13 @@ private:
 		glm::vec4 lightDir;
 	};
 
+	struct MultiViewProjMatrices
+	{
+		glm::mat4 view[6];
+		glm::mat4 proj;
+		glm::vec4 lightDir;
+	};
+
 	BufferObject m_cubemapEnvUniform;
 
 	// 周辺ティーポット（To Main）
@@ -80,6 +87,15 @@ private:
 	};
 	AroundTeapotsToCubeFaceScene m_aroundTeapotsToFace;
 
+	// 周辺ティーポット（To CubemapOnce）
+	struct AroundTeapotsToCubeScene
+	{
+		VkPipeline pipeline;
+		std::vector<BufferObject> cameraViewUniform;
+		std::vector<VkDescriptorSet> descriptors;
+	};
+	AroundTeapotsToCubeScene m_aroundTeapotsToCubemap;
+
 	// 中心のティーポット
 	struct CenterTeapot
 	{
@@ -99,6 +115,15 @@ private:
 	};
 	CubeFaceScene m_cubeFaceScene;
 
+	struct CubemapSingleScene
+	{
+		VkImageView view;
+		ImageObject depth;
+		VkFramebuffer framebuffer;
+		VkRenderPass renderPass;
+	};
+	CubemapSingleScene m_cubeScene;
+
 	const uint32_t CubeEdge = 512;
 	const VkFormat CubemapFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
@@ -106,6 +131,7 @@ private:
 	{
 		Mode_StaticCubemap,
 		Mode_MultiPassCubemap,
+		Mode_SinglePassCubemap,
 	};
 	Mode m_mode = Mode_StaticCubemap;
 
@@ -123,9 +149,11 @@ private:
 	);
 
 	void PrepareRenderTargetForMultiPass();
+	void PrepareRenderTargetForSinglePass();
 	void PrepareCenterTeapotDescriptos();
 	void PrepareAroundTeapotDescriptos();
 	void RenderCubemapFaces(const VkCommandBuffer& command);
+	void RenderCubemapOnce(const VkCommandBuffer& command);
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
 

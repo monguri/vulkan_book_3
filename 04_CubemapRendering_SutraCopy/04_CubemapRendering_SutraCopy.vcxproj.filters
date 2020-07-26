@@ -120,5 +120,14 @@
     <CustomBuild Include="Shader\teapotVS.vert">
       <Filter>Shader</Filter>
     </CustomBuild>
+    <CustomBuild Include="Shader\cubemapFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\cubemapGS.geom">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\cubemapVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

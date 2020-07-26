@@ -48,6 +48,7 @@ void CubemapRenderingApp::Prepare()
 	
 	// レンダーターゲットの準備
 	PrepareRenderTargetForMultiPass();
+	PrepareRenderTargetForSinglePass();
 
 	PrepareCenterTeapotDescriptos();
 	PrepareAroundTeapotDescriptos();
@@ -102,6 +103,24 @@ void CubemapRenderingApp::Cleanup()
 		}
 	}
 
+	// AroundTeapots(Cube)
+	{
+		vkDestroyPipeline(m_device, m_aroundTeapotsToCubemap.pipeline, nullptr);
+
+		for (const BufferObject& bufferObj : m_aroundTeapotsToCubemap.cameraViewUniform)
+		{
+			DestroyBuffer(bufferObj);
+		}
+		m_aroundTeapotsToCubemap.cameraViewUniform.clear();
+
+		for (const VkDescriptorSet& ds : m_aroundTeapotsToCubemap.descriptors)
+		{
+			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
+			DeallocateDescriptorset(ds);
+		}
+		m_aroundTeapotsToCubemap.descriptors.clear();
+	}
+
 	// CenterTeapot
 	{
 		vkDestroyPipeline(m_device, m_centerTeapot.pipeline, nullptr);
@@ -136,6 +155,13 @@ void CubemapRenderingApp::Cleanup()
 
 		DestroyImage(m_cubeFaceScene.depth);
 		DestroyFramebuffers(_countof(m_cubeFaceScene.fbFaces), m_cubeFaceScene.fbFaces);
+	}
+
+	// CubeScene
+	{
+		vkDestroyImageView(m_device, m_cubeScene.view, nullptr);
+		DestroyImage(m_cubeScene.depth);
+		DestroyFramebuffers(1, &m_cubeScene.framebuffer);
 	}
 
 	DestroyImage(m_staticCubemap);
@@ -217,7 +243,7 @@ void CubemapRenderingApp::Render()
 		shaderParam.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
 		WriteToHostVisibleMemory(m_centerTeapot.sceneUBO[m_imageIndex].memory, sizeof(shaderParam), &shaderParam);
 
-		// 周辺ティーポットのキューブマップフェイス描画用の定数バッファへの値の設定
+		// 周辺ティーポットのキューブマップへのマルチパス描画用の定数バッファへの値の設定
 		// 原点にあるカメラがキューブマップの各面の方を向くようにする
 		glm::vec3 eye(0.0f, 0.0f, 0.0f);
 		glm::vec3 dir[] = {
@@ -258,6 +284,21 @@ void CubemapRenderingApp::Render()
 		view.proj = shaderParam.proj;
 		view.lightDir = shaderParam.lightDir;
 		WriteToHostVisibleMemory(m_aroundTeapotsToMain.cameraViewUniform[m_imageIndex].memory, sizeof(view), &view);
+
+		// 周辺ティーポットのキューブマップへのシングルパス描画用の定数バッファへの値の設定
+		MultiViewProjMatrices allViews;
+		for (int face = 0; face < 6; ++face)
+		{
+			allViews.view[face] = glm::lookAt(eye, dir[face], up[face]);
+		}
+		allViews.proj = glm::perspectiveRH(
+			glm::radians(45.0f),
+			float(CubeEdge) / float(CubeEdge),
+			0.1f,
+			100.0f
+		);
+		allViews.lightDir = shaderParam.lightDir;
+		WriteToHostVisibleMemory(m_aroundTeapotsToCubemap.cameraViewUniform[m_imageIndex].memory, sizeof(allViews), &allViews);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -301,6 +342,9 @@ void CubemapRenderingApp::Render()
 			break;
 		case CubemapRenderingApp::Mode_MultiPassCubemap:
 			RenderCubemapFaces(command);
+			break;
+		case CubemapRenderingApp::Mode_SinglePassCubemap:
+			RenderCubemapOnce(command);
 			break;
 		default:
 			assert(false);
@@ -346,12 +390,12 @@ void CubemapRenderingApp::Render()
 
 void CubemapRenderingApp::RenderCubemapFaces(const VkCommandBuffer& command)
 {
-	VkCommandBufferBeginInfo commandBI{};
-	commandBI.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	commandBI.pNext = nullptr;
-	commandBI.flags = 0;
-	commandBI.pInheritanceInfo = nullptr;
-	VkResult result = vkBeginCommandBuffer(command, &commandBI);
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.pNext = nullptr;
+	beginInfo.flags = 0;
+	beginInfo.pInheritanceInfo = nullptr;
+	VkResult result = vkBeginCommandBuffer(command, &beginInfo);
 	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -407,6 +451,64 @@ void CubemapRenderingApp::RenderCubemapFaces(const VkCommandBuffer& command)
 	}
 }
 
+void CubemapRenderingApp::RenderCubemapOnce(const VkCommandBuffer& command)
+{
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.pNext = nullptr;
+	beginInfo.flags = 0;
+	beginInfo.pInheritanceInfo = nullptr;
+	VkResult result = vkBeginCommandBuffer(command, &beginInfo);
+	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
+
+	std::array<VkClearValue, 2> clearValue = {
+		{
+			{0.5f, 0.75f, 1.0f, 0.0f}, // for Color
+			{1.0f, 0}, // for Depth
+		}
+	};
+
+	VkViewport viewport{};
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = float(CubeEdge);
+	viewport.height = float(CubeEdge);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor{};
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent.width = CubeEdge;
+	scissor.extent.height = CubeEdge;
+
+	VkRenderPassBeginInfo rpBI{};
+	rpBI.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	rpBI.pNext = nullptr;
+	rpBI.renderPass = m_cubeFaceScene.renderPass;
+	rpBI.framebuffer = m_cubeScene.framebuffer;
+	rpBI.renderArea = scissor;
+	rpBI.clearValueCount = uint32_t(clearValue.size());
+	rpBI.pClearValues = clearValue.data();
+
+	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_aroundTeapotsToCubemap.pipeline);
+
+	const VkPipelineLayout& pipelineLayout = GetPipelineLayout("u2");
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &m_aroundTeapotsToCubemap.descriptors[m_imageIndex], 0, nullptr);
+
+	vkCmdSetScissor(command, 0, 1, &scissor);
+	vkCmdSetViewport(command, 0, 1, &viewport);
+
+	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	VkDeviceSize offsets[] = {0};
+	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
+	vkCmdDrawIndexed(command, m_teapot.indexCount, 6, 0, 0, 0);
+
+	vkCmdEndRenderPass(command);
+}
+
 void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
 {
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
@@ -432,6 +534,7 @@ void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
 			ds = m_centerTeapot.dsCubemapStatic[m_imageIndex];
 			break;
 		case CubemapRenderingApp::Mode_MultiPassCubemap:
+		case CubemapRenderingApp::Mode_SinglePassCubemap:
 			ds = m_centerTeapot.dsCubemapRendered[m_imageIndex];
 			break;
 		default:
@@ -464,7 +567,7 @@ void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
-	ImGui::Combo("Mode", (int*)&m_mode, "Static\0MultiPass\0\0");
+	ImGui::Combo("Mode", (int*)&m_mode, "Static\0MultiPass\0SinglePass\0\0");
 	ImGui::End();
 
 	ImGui::Render();
@@ -1062,7 +1165,7 @@ void CubemapRenderingApp::PrepareAroundTeapotDescriptos()
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u2");
 	uint32_t imageCount = m_swapchain->GetImageCount();
 
-	// キューブマップへ描画するための定数バッファを準備
+	// キューブマップへマルチパスで描画するための定数バッファを準備
 	uint32_t bufferSize = uint32_t(sizeof(ViewProjMatrices));
 	for (int face = 0; face < 6; ++face)
 	{
@@ -1071,6 +1174,10 @@ void CubemapRenderingApp::PrepareAroundTeapotDescriptos()
 
 	// メインの描画パスで描画するための定数バッファを準備
 	m_aroundTeapotsToMain.cameraViewUniform = CreateUniformBuffers(bufferSize, imageCount);
+
+	// キューブマップへシングルパスで描画するための定数バッファを準備
+	bufferSize = uint32_t(sizeof(MultiViewProjMatrices));
+	m_aroundTeapotsToCubemap.cameraViewUniform = CreateUniformBuffers(bufferSize, imageCount);
 
 	// キューブマップへ描画するためのディスクリプタを準備
 	for (int face = 0; face < 6; ++face)
@@ -1108,6 +1215,43 @@ void CubemapRenderingApp::PrepareAroundTeapotDescriptos()
 
 			vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
 		}
+	}
+
+
+
+	m_aroundTeapotsToCubemap.descriptors.resize(imageCount);
+	//m_aroundTeapotsToCubemap.cameraViewUniform.resize(imageCount); // TODO:本ではやってるが、CreateBuffersですでに2個作っているため不要
+	for (uint32_t i = 0; i < imageCount; ++i)
+	{
+		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
+		m_aroundTeapotsToCubemap.descriptors[i] = ds;
+
+		VkDescriptorBufferInfo instanceUbo{};
+		instanceUbo.buffer = m_cubemapEnvUniform.buffer;
+		instanceUbo.offset = 0;
+		instanceUbo.range = VK_WHOLE_SIZE;
+
+		VkDescriptorBufferInfo viewProjParamUbo{};
+		viewProjParamUbo.buffer = m_aroundTeapotsToCubemap.cameraViewUniform[i].buffer;
+		viewProjParamUbo.offset = 0;
+		viewProjParamUbo.range = VK_WHOLE_SIZE;
+
+		std::vector<VkWriteDescriptorSet> writeSet = {
+			book_util::CreateWriteDescriptorSet(
+				ds,
+				0,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				&instanceUbo
+			),
+			book_util::CreateWriteDescriptorSet(
+				ds,
+				1,
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				&viewProjParamUbo
+			)
+		};
+
+		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
 	}
 
 	// メインの描画パスで描画するためのディスクリプタを準備
@@ -1156,6 +1300,16 @@ void CubemapRenderingApp::PrepareAroundTeapotDescriptos()
 	// メイン描画パス。マルチ描画パスとシェーダは変えない
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	m_aroundTeapotsToMain.pipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u2", shaderStages);
+	book_util::DestroyShaderModules(m_device, shaderStages);
+
+	// シングル描画パス。レンダーパスとレイアウトはマルチ描画パスと変えない。レンダーパスは描画先フォーマットやスワップバッファかレンダーターゲットかくらいでしか通常は変わらないもの。
+	shaderStages =
+	{
+		book_util::LoadShader(m_device, "cubemapVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+		book_util::LoadShader(m_device, "cubemapGS.spv", VK_SHADER_STAGE_GEOMETRY_BIT),
+		book_util::LoadShader(m_device, "cubemapFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+	};
+	m_aroundTeapotsToCubemap.pipeline = CreateRenderTeapotPipeline("cubemap", CubeEdge, CubeEdge, "u2", shaderStages);
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
@@ -1249,6 +1403,90 @@ void CubemapRenderingApp::PrepareRenderTargetForMultiPass()
 		result = vkCreateFramebuffer(m_device, &fbCI, nullptr, &m_cubeFaceScene.fbFaces[i]);
 		ThrowIfFailed(result, "vkCreateFramebuffer Failed.");
 	}
+}
+
+void CubemapRenderingApp::PrepareRenderTargetForSinglePass()
+{
+	VkImageViewCreateInfo viewCI{};
+	viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCI.pNext = nullptr;
+	viewCI.flags = 0;
+	viewCI.image = m_cubemapRendered.image;
+	viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D; //ここは2Dでいいらしい。CUBEもあるのに
+	viewCI.format = CubemapFormat;
+	viewCI.components = book_util::DefaultComponentMapping();
+	viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewCI.subresourceRange.baseMipLevel = 0;
+	viewCI.subresourceRange.levelCount = 1;
+	viewCI.subresourceRange.baseArrayLayer = 0; // 6面を別々に扱うのと違ってここが0になる
+	viewCI.subresourceRange.layerCount = 6; // レイヤーの数が6。シェーダでのgl_Layerと対応。
+	VkResult result = vkCreateImageView(m_device, &viewCI, nullptr, &m_cubeScene.view);
+	ThrowIfFailed(result, "vkCreateImageView Failed.");
+
+	// 描画先デプスバッファの準備
+	VkImageCreateInfo depthImageCI{};
+	depthImageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	depthImageCI.pNext = nullptr;
+	depthImageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // DepthもCubemapのサイズ分が必要
+	depthImageCI.imageType = VK_IMAGE_TYPE_2D;
+	depthImageCI.format = VK_FORMAT_D32_SFLOAT;
+	depthImageCI.extent.width = CubeEdge;
+	depthImageCI.extent.height = CubeEdge;
+	depthImageCI.extent.depth = 1;
+	depthImageCI.mipLevels = 1;
+	depthImageCI.arrayLayers = 6; // レイヤーの数が6。シェーダでのgl_Layerと対応。
+	depthImageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthImageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+	depthImageCI.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	depthImageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	depthImageCI.queueFamilyIndexCount = 0;
+	depthImageCI.pQueueFamilyIndices = nullptr;
+	depthImageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	result = vkCreateImage(m_device, &depthImageCI, nullptr, &m_cubeScene.depth.image);
+	ThrowIfFailed(result, "vkCreateImage Failed.");
+
+	m_cubeScene.depth.memory = AllocateMemory(m_cubeScene.depth.image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	result = vkBindImageMemory(m_device, m_cubeScene.depth.image, m_cubeScene.depth.memory, 0);
+	ThrowIfFailed(result, "vkBindImageMemory Failed.");
+
+	VkImageViewCreateInfo depthViewCI{};
+	depthViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	depthViewCI.pNext = nullptr;
+	depthViewCI.flags = 0;
+	depthViewCI.image = m_cubeScene.depth.image;
+	depthViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D; // なぜかviewは常に2D
+	depthViewCI.format = depthImageCI.format;
+	depthViewCI.components = book_util::DefaultComponentMapping();
+	depthViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	depthViewCI.subresourceRange.baseMipLevel = 0;
+	depthViewCI.subresourceRange.levelCount = 1;
+	depthViewCI.subresourceRange.baseArrayLayer = 0;
+	depthViewCI.subresourceRange.layerCount = 6; // レイヤーの数が6。シェーダでのgl_Layerと対応。
+	result = vkCreateImageView(m_device, &depthViewCI, nullptr, &m_cubeScene.depth.view);
+	ThrowIfFailed(result, "vkCreateImageView Failed.");
+
+	m_cubeScene.renderPass = GetRenderPass("cubemap");
+
+	// 6つの面（VkImageView）へ接続するVkFramebufferを準備
+	// VkFramebufferもCubemapに対応したものをがひとつあればいい。
+	// レイヤー数だけ6になる
+	std::array<VkImageView, 2> attachments;
+	attachments[0] = m_cubeScene.view;
+	attachments[1] = m_cubeScene.depth.view;
+
+	VkFramebufferCreateInfo fbCI{};
+	fbCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	fbCI.pNext = nullptr;
+	fbCI.flags = 0;
+	fbCI.renderPass = m_cubeScene.renderPass;
+	fbCI.attachmentCount = uint32_t(attachments.size());
+	fbCI.pAttachments = attachments.data();
+	fbCI.width = CubeEdge;
+	fbCI.height = CubeEdge;
+	fbCI.layers = 6; // レイヤーの数が6。シェーダでのgl_Layerと対応。
+
+	result = vkCreateFramebuffer(m_device, &fbCI, nullptr, &m_cubeScene.framebuffer);
+	ThrowIfFailed(result, "vkCreateFramebuffer Failed.");
 }
 
 void CubemapRenderingApp::CreateSampleLayouts()
