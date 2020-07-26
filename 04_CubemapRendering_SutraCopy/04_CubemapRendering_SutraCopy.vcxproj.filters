@@ -106,14 +106,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="Shader\drawNormalFS.frag" />
-    <CustomBuild Include="Shader\drawNormalGS.geom" />
-    <CustomBuild Include="Shader\drawNormalVS.vert" />
-    <CustomBuild Include="Shader\flatFS.frag" />
-    <CustomBuild Include="Shader\flatGS.geom" />
-    <CustomBuild Include="Shader\flatVS.vert" />
-    <CustomBuild Include="Shader\shaderFS.frag" />
-    <CustomBuild Include="Shader\shaderVS.vert" />
     <CustomBuild Include="Shader\teapotFS.frag">
       <Filter>Shader</Filter>
     </CustomBuild>
@@ -127,6 +119,12 @@
       <Filter>Shader</Filter>
     </CustomBuild>
     <CustomBuild Include="Shader\cubemapVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\shaderFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\shaderVS.vert">
       <Filter>Shader</Filter>
     </CustomBuild>
   </ItemGroup>
