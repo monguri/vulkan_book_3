@@ -273,7 +273,6 @@ void CubemapRenderingApp::Render()
 				0.1f,
 				100.0f
 			);
-			matrices.proj = shaderParam.proj;
 			matrices.lightDir = shaderParam.lightDir;
 			WriteToHostVisibleMemory(m_aroundTeapotsToFace.cameraViewUniform[i][m_imageIndex].memory, sizeof(matrices), &matrices);
 		}
