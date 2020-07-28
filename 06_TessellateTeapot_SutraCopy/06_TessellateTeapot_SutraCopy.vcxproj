@@ -121,6 +121,12 @@
   <ItemGroup>
     <ClCompile Include="..\commonSutraCopy\Swapchain.cpp" />
     <ClCompile Include="..\commonSutraCopy\VulkanAppBase.cpp" />
+    <ClCompile Include="..\common\imgui\examples\imgui_impl_glfw.cpp" />
+    <ClCompile Include="..\common\imgui\examples\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="..\common\imgui\imgui.cpp" />
+    <ClCompile Include="..\common\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\common\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\common\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CubemapRenderingApp.cpp" />
     <ClCompile Include="main.cpp" />
@@ -131,6 +137,14 @@
     <ClInclude Include="..\commonSutraCopy\TeapotModel.h" />
     <ClInclude Include="..\commonSutraCopy\VulkanAppBase.h" />
     <ClInclude Include="..\commonSutraCopy\VulkanBookUtil.h" />
+    <ClInclude Include="..\common\imgui\examples\imgui_impl_glfw.h" />
+    <ClInclude Include="..\common\imgui\examples\imgui_impl_vulkan.h" />
+    <ClInclude Include="..\common\imgui\imconfig.h" />
+    <ClInclude Include="..\common\imgui\imgui.h" />
+    <ClInclude Include="..\common\imgui\imgui_internal.h" />
+    <ClInclude Include="..\common\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\common\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\common\imgui\imstb_truetype.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CubemapRenderingApp.h" />
   </ItemGroup>
