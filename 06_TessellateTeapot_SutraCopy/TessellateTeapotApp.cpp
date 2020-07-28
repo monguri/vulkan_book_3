@@ -389,20 +389,7 @@ void TessellateTeapotApp::RenderToMain(const VkCommandBuffer& command)
 	// 中央ティーポットの描画
 	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_centerTeapot.pipeline);
 
-	VkDescriptorSet ds = VK_NULL_HANDLE;
-	switch (m_mode)
-	{
-		case TessellateTeapotApp::Mode_StaticCubemap:
-			ds = m_centerTeapot.dsCubemapStatic[m_imageIndex];
-			break;
-		case TessellateTeapotApp::Mode_MultiPassCubemap:
-		case TessellateTeapotApp::Mode_SinglePassCubemap:
-			ds = m_centerTeapot.dsCubemapRendered[m_imageIndex];
-			break;
-		default:
-			assert(false);
-			break;
-	}
+	VkDescriptorSet ds = m_centerTeapot.dsCubemapStatic[m_imageIndex];
 
 	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1t1");
 	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
@@ -429,7 +416,6 @@ void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
-	ImGui::Combo("Mode", (int*)&m_mode, "Static\0MultiPass\0SinglePass\0\0");
 	ImGui::End();
 
 	ImGui::Render();

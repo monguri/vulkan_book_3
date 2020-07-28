@@ -127,14 +127,6 @@ private:
 	const uint32_t CubeEdge = 512;
 	const VkFormat CubemapFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
-	enum Mode
-	{
-		Mode_StaticCubemap,
-		Mode_MultiPassCubemap,
-		Mode_SinglePassCubemap,
-	};
-	Mode m_mode = Mode_StaticCubemap;
-
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
