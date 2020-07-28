@@ -68,34 +68,6 @@ private:
 
 	BufferObject m_cubemapEnvUniform;
 
-	// 周辺ティーポット（To Main）
-	struct AroundTeapotsToMainScene
-	{
-		VkPipeline pipeline;
-		std::vector<BufferObject> cameraViewUniform;
-		std::vector<VkDescriptorSet> descriptors;
-	};
-	AroundTeapotsToMainScene m_aroundTeapotsToMain;
-
-	// TODO:なぜこれはCubeFaceSceneとひとまとめにしないのか？
-	// 周辺ティーポット（To CubemapFace）
-	struct AroundTeapotsToCubeFaceScene
-	{
-		VkPipeline pipeline;
-		std::vector<BufferObject> cameraViewUniform[6];
-		std::vector<VkDescriptorSet> descriptors[6];
-	};
-	AroundTeapotsToCubeFaceScene m_aroundTeapotsToFace;
-
-	// 周辺ティーポット（To CubemapOnce）
-	struct AroundTeapotsToCubeScene
-	{
-		VkPipeline pipeline;
-		std::vector<BufferObject> cameraViewUniform;
-		std::vector<VkDescriptorSet> descriptors;
-	};
-	AroundTeapotsToCubeScene m_aroundTeapotsToCubemap;
-
 	// 中心のティーポット
 	struct CenterTeapot
 	{
@@ -143,7 +115,6 @@ private:
 	void PrepareRenderTargetForMultiPass();
 	void PrepareRenderTargetForSinglePass();
 	void PrepareCenterTeapotDescriptos();
-	void PrepareAroundTeapotDescriptos();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
 

@@ -51,7 +51,6 @@ void TessellateTeapotApp::Prepare()
 	PrepareRenderTargetForSinglePass();
 
 	PrepareCenterTeapotDescriptos();
-	PrepareAroundTeapotDescriptos();
 
 	// ティーポットのモデルをロード
 	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
@@ -63,63 +62,6 @@ void TessellateTeapotApp::Cleanup()
 {
 	DestroyBuffer(m_teapot.resVertexBuffer);
 	DestroyBuffer(m_teapot.resIndexBuffer);
-
-	// AroundTeapots(Main)
-	{
-		vkDestroyPipeline(m_device, m_aroundTeapotsToMain.pipeline, nullptr);
-
-		for (const BufferObject& bufferObj : m_aroundTeapotsToMain.cameraViewUniform)
-		{
-			DestroyBuffer(bufferObj);
-		}
-		m_aroundTeapotsToMain.cameraViewUniform.clear();
-
-		for (const VkDescriptorSet& ds : m_aroundTeapotsToMain.descriptors)
-		{
-			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
-			DeallocateDescriptorset(ds);
-		}
-		m_aroundTeapotsToMain.descriptors.clear();
-	}
-
-	// AroundTeapots(Face)
-	{
-		vkDestroyPipeline(m_device, m_aroundTeapotsToFace.pipeline, nullptr);
-
-		for (int face = 0; face < 6; ++face)
-		{
-			for (const BufferObject& bufferObj : m_aroundTeapotsToFace.cameraViewUniform[face])
-			{
-				DestroyBuffer(bufferObj);
-			}
-			m_aroundTeapotsToFace.cameraViewUniform[face].clear();
-
-			for (const VkDescriptorSet& ds : m_aroundTeapotsToFace.descriptors[face])
-			{
-				// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
-				DeallocateDescriptorset(ds);
-			}
-			m_aroundTeapotsToFace.descriptors[face].clear();
-		}
-	}
-
-	// AroundTeapots(Cube)
-	{
-		vkDestroyPipeline(m_device, m_aroundTeapotsToCubemap.pipeline, nullptr);
-
-		for (const BufferObject& bufferObj : m_aroundTeapotsToCubemap.cameraViewUniform)
-		{
-			DestroyBuffer(bufferObj);
-		}
-		m_aroundTeapotsToCubemap.cameraViewUniform.clear();
-
-		for (const VkDescriptorSet& ds : m_aroundTeapotsToCubemap.descriptors)
-		{
-			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
-			DeallocateDescriptorset(ds);
-		}
-		m_aroundTeapotsToCubemap.descriptors.clear();
-	}
 
 	// CenterTeapot
 	{
@@ -242,62 +184,6 @@ void TessellateTeapotApp::Render()
 		shaderParam.lightDir = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
 		shaderParam.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
 		WriteToHostVisibleMemory(m_centerTeapot.sceneUBO[m_imageIndex].memory, sizeof(shaderParam), &shaderParam);
-
-		// 周辺ティーポットのキューブマップへのマルチパス描画用の定数バッファへの値の設定
-		// 原点にあるカメラがキューブマップの各面の方を向くようにする
-		glm::vec3 eye(0.0f, 0.0f, 0.0f);
-		glm::vec3 dir[] = {
-			glm::vec3(1.0f, 0.0f, 0.0f),
-			glm::vec3(-1.0f, 0.0f, 0.0f),
-			glm::vec3(0.0f, 1.0f, 0.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f),
-			glm::vec3(0.0f, 0.0f, 1.0f),
-			glm::vec3(0.0f, 0.0f, -1.0f),
-		};
-		//TODO:このupの方向についてはとりあえずそういうものかと思うようにする
-		glm::vec3 up[] = {
-			glm::vec3(0.0f, -1.0f, 0.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f),
-			glm::vec3(0.0f, 0.0f, 1.0f),
-			glm::vec3(0.0f, 0.0f, -1.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f),
-			glm::vec3(0.0f, -1.0f, 0.0f),
-		};
-		for (int i = 0; i < 6; ++i)
-		{
-			ViewProjMatrices matrices;
-			matrices.view = glm::lookAt(eye, dir[i], up[i]);
-			matrices.proj = glm::perspectiveRH(
-				glm::radians(45.0f),
-				float(CubeEdge) / float(CubeEdge),
-				0.1f,
-				100.0f
-			);
-			matrices.lightDir = shaderParam.lightDir;
-			WriteToHostVisibleMemory(m_aroundTeapotsToFace.cameraViewUniform[i][m_imageIndex].memory, sizeof(matrices), &matrices);
-		}
-
-		// 周辺ティーポットのメイン描画用の定数バッファへの値の設定
-		ViewProjMatrices view;
-		view.view = shaderParam.view;
-		view.proj = shaderParam.proj;
-		view.lightDir = shaderParam.lightDir;
-		WriteToHostVisibleMemory(m_aroundTeapotsToMain.cameraViewUniform[m_imageIndex].memory, sizeof(view), &view);
-
-		// 周辺ティーポットのキューブマップへのシングルパス描画用の定数バッファへの値の設定
-		MultiViewProjMatrices allViews;
-		for (int face = 0; face < 6; ++face)
-		{
-			allViews.view[face] = glm::lookAt(eye, dir[face], up[face]);
-		}
-		allViews.proj = glm::perspectiveRH(
-			glm::radians(45.0f),
-			float(CubeEdge) / float(CubeEdge),
-			0.1f,
-			100.0f
-		);
-		allViews.lightDir = shaderParam.lightDir;
-		WriteToHostVisibleMemory(m_aroundTeapotsToCubemap.cameraViewUniform[m_imageIndex].memory, sizeof(allViews), &allViews);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -397,14 +283,6 @@ void TessellateTeapotApp::RenderToMain(const VkCommandBuffer& command)
 	VkDeviceSize offsets[] = {0};
 	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
 	vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
-
-	// 周囲の多数のティーポットの描画
-	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_aroundTeapotsToMain.pipeline);
-	pipelineLayout = GetPipelineLayout("u2");
-	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &m_aroundTeapotsToMain.descriptors[m_imageIndex], 0, nullptr);
-	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
-	vkCmdDrawIndexed(command, m_teapot.indexCount, 6, 0, 0, 0); // 6個描画する
 }
 
 void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
@@ -1005,159 +883,6 @@ void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
 
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	m_centerTeapot.pipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u1t1", shaderStages);
-	book_util::DestroyShaderModules(m_device, shaderStages);
-}
-
-void TessellateTeapotApp::PrepareAroundTeapotDescriptos()
-{
-	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u2");
-	uint32_t imageCount = m_swapchain->GetImageCount();
-
-	// キューブマップへマルチパスで描画するための定数バッファを準備
-	uint32_t bufferSize = uint32_t(sizeof(ViewProjMatrices));
-	for (int face = 0; face < 6; ++face)
-	{
-		m_aroundTeapotsToFace.cameraViewUniform[face] = CreateUniformBuffers(bufferSize, imageCount);
-	}
-
-	// メインの描画パスで描画するための定数バッファを準備
-	m_aroundTeapotsToMain.cameraViewUniform = CreateUniformBuffers(bufferSize, imageCount);
-
-	// キューブマップへシングルパスで描画するための定数バッファを準備
-	bufferSize = uint32_t(sizeof(MultiViewProjMatrices));
-	m_aroundTeapotsToCubemap.cameraViewUniform = CreateUniformBuffers(bufferSize, imageCount);
-
-	// キューブマップへ描画するためのディスクリプタを準備
-	for (int face = 0; face < 6; ++face)
-	{
-		m_aroundTeapotsToFace.descriptors[face].resize(imageCount);
-		for (uint32_t i = 0; i < imageCount; ++i)
-		{
-			const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
-			m_aroundTeapotsToFace.descriptors[face][i] = ds;
-
-			VkDescriptorBufferInfo instanceUbo{};
-			instanceUbo.buffer = m_cubemapEnvUniform.buffer;
-			instanceUbo.offset = 0;
-			instanceUbo.range = VK_WHOLE_SIZE;
-
-			VkDescriptorBufferInfo viewProjParamUbo{};
-			viewProjParamUbo.buffer = m_aroundTeapotsToFace.cameraViewUniform[face][i].buffer;
-			viewProjParamUbo.offset = 0;
-			viewProjParamUbo.range = VK_WHOLE_SIZE;
-
-			std::vector<VkWriteDescriptorSet> writeSet = {
-				book_util::CreateWriteDescriptorSet(
-					ds,
-					0,
-					VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					&instanceUbo
-				),
-				book_util::CreateWriteDescriptorSet(
-					ds,
-					1,
-					VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-					&viewProjParamUbo
-				)
-			};
-
-			vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
-		}
-	}
-
-
-
-	m_aroundTeapotsToCubemap.descriptors.resize(imageCount);
-	//m_aroundTeapotsToCubemap.cameraViewUniform.resize(imageCount); // TODO:本ではやってるが、CreateBuffersですでに2個作っているため不要
-	for (uint32_t i = 0; i < imageCount; ++i)
-	{
-		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
-		m_aroundTeapotsToCubemap.descriptors[i] = ds;
-
-		VkDescriptorBufferInfo instanceUbo{};
-		instanceUbo.buffer = m_cubemapEnvUniform.buffer;
-		instanceUbo.offset = 0;
-		instanceUbo.range = VK_WHOLE_SIZE;
-
-		VkDescriptorBufferInfo viewProjParamUbo{};
-		viewProjParamUbo.buffer = m_aroundTeapotsToCubemap.cameraViewUniform[i].buffer;
-		viewProjParamUbo.offset = 0;
-		viewProjParamUbo.range = VK_WHOLE_SIZE;
-
-		std::vector<VkWriteDescriptorSet> writeSet = {
-			book_util::CreateWriteDescriptorSet(
-				ds,
-				0,
-				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				&instanceUbo
-			),
-			book_util::CreateWriteDescriptorSet(
-				ds,
-				1,
-				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				&viewProjParamUbo
-			)
-		};
-
-		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
-	}
-
-	// メインの描画パスで描画するためのディスクリプタを準備
-	m_aroundTeapotsToMain.descriptors.resize(imageCount);
-	for (uint32_t i = 0; i < imageCount; ++i)
-	{
-		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
-		m_aroundTeapotsToMain.descriptors[i] = ds;
-
-		VkDescriptorBufferInfo instanceUbo{};
-		instanceUbo.buffer = m_cubemapEnvUniform.buffer;
-		instanceUbo.offset = 0;
-		instanceUbo.range = VK_WHOLE_SIZE;
-
-		VkDescriptorBufferInfo viewProjParamUbo{};
-		viewProjParamUbo.buffer = m_aroundTeapotsToMain.cameraViewUniform[i].buffer;
-		viewProjParamUbo.offset = 0;
-		viewProjParamUbo.range = VK_WHOLE_SIZE;
-
-		std::vector<VkWriteDescriptorSet> writeSet = {
-			book_util::CreateWriteDescriptorSet(
-				ds,
-				0,
-				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				&instanceUbo
-			),
-			book_util::CreateWriteDescriptorSet(
-				ds,
-				1,
-				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				&viewProjParamUbo
-			)
-		};
-
-		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
-	}
-
-	// マルチ描画パス
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-	{
-		book_util::LoadShader(m_device, "teapotVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-		book_util::LoadShader(m_device, "teapotFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
-	};
-	m_aroundTeapotsToFace.pipeline = CreateRenderTeapotPipeline("cubemap", CubeEdge, CubeEdge, "u2", shaderStages);
-
-	// メイン描画パス。マルチ描画パスとシェーダは変えない
-	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
-	m_aroundTeapotsToMain.pipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u2", shaderStages);
-	book_util::DestroyShaderModules(m_device, shaderStages);
-
-	// シングル描画パス。レンダーパスとレイアウトはマルチ描画パスと変えない。レンダーパスは描画先フォーマットやスワップバッファかレンダーターゲットかくらいでしか通常は変わらないもの。
-	shaderStages =
-	{
-		book_util::LoadShader(m_device, "cubemapVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-		book_util::LoadShader(m_device, "cubemapGS.spv", VK_SHADER_STAGE_GEOMETRY_BIT),
-		book_util::LoadShader(m_device, "cubemapFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
-	};
-	m_aroundTeapotsToCubemap.pipeline = CreateRenderTeapotPipeline("cubemap", CubeEdge, CubeEdge, "u2", shaderStages);
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
