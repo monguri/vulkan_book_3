@@ -45,10 +45,6 @@ void TessellateTeapotApp::Prepare()
 	}
 
 	PrepareSceneResource();
-	
-	// レンダーターゲットの準備
-	PrepareRenderTargetForMultiPass();
-	PrepareRenderTargetForSinglePass();
 
 	PrepareCenterTeapotDescriptos();
 
@@ -107,7 +103,6 @@ void TessellateTeapotApp::Cleanup()
 	}
 
 	DestroyImage(m_staticCubemap);
-	DestroyImage(m_cubemapRendered);
 	vkDestroySampler(m_device, m_cubemapSampler, nullptr);
 
 	DestroyImage(m_depthBuffer);
@@ -220,18 +215,12 @@ void TessellateTeapotApp::Render()
 	result = vkBeginCommandBuffer(command, &commandBI);
 	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
 
-	// 描画した内容をテクスチャとして使うためのバリアを設定
-	BarrierRTToTexture(command);
-
 	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
 
 	RenderToMain(command);
 	RenderHUD(command);
 
 	vkCmdEndRenderPass(command);
-
-	// 次回の描画に備えてバリアを設定
-	BarrierTextureToRT(command);
 
 	result = vkEndCommandBuffer(command);
 	ThrowIfFailed(result, "vkEndCommandBuffer Failed.");
@@ -300,64 +289,6 @@ void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
 }
 
-void TessellateTeapotApp::BarrierRTToTexture(const VkCommandBuffer& command)
-{
-	VkImageMemoryBarrier imageBarrier{};
-	imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	imageBarrier.pNext = nullptr;
-	imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	imageBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	imageBarrier.image = m_cubemapRendered.image;
-	imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	imageBarrier.subresourceRange.baseMipLevel = 0;
-	imageBarrier.subresourceRange.levelCount = 1;
-	imageBarrier.subresourceRange.baseArrayLayer = 0;
-	imageBarrier.subresourceRange.layerCount = 6; // キューブマップ
-
-	vkCmdPipelineBarrier(
-		command,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		0, // dependencyFlags
-		0, nullptr, // memoryBarrier
-		0, nullptr, // bufferMemoryBarrier
-		1, &imageBarrier // imageMemoryBarrier
-	);
-}
-
-void TessellateTeapotApp::BarrierTextureToRT(const VkCommandBuffer& command)
-{
-	VkImageMemoryBarrier imageBarrier{};
-	imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	imageBarrier.pNext = nullptr;
-	imageBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-	imageBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	imageBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	imageBarrier.image = m_cubemapRendered.image;
-	imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	imageBarrier.subresourceRange.baseMipLevel = 0;
-	imageBarrier.subresourceRange.levelCount = 1;
-	imageBarrier.subresourceRange.baseArrayLayer = 0;
-	imageBarrier.subresourceRange.layerCount = 6; // キューブマップ
-
-	vkCmdPipelineBarrier(
-		command,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		0, // dependencyFlags
-		0, nullptr, // memoryBarrier
-		0, nullptr, // bufferMemoryBarrier
-		1, &imageBarrier // imageMemoryBarrier
-	);
-}
-
 void TessellateTeapotApp::PrepareDepthbuffer()
 {
 	// デプスバッファを準備する
@@ -416,73 +347,6 @@ void TessellateTeapotApp::PrepareSceneResource()
 	};
 	m_staticCubemap = LoadCubeTextureFromFile(files);
 
-	// 描画先となるキューブマップの準備
-	VkImageCreateInfo imageCI{};
-	imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	imageCI.pNext = nullptr;
-	imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Cubemapとして扱うため
-	imageCI.imageType = VK_IMAGE_TYPE_2D;
-	imageCI.format = CubemapFormat;
-	imageCI.extent.width = CubeEdge;
-	imageCI.extent.height = CubeEdge;
-	imageCI.extent.depth = 1;
-	imageCI.mipLevels = 1;
-	imageCI.arrayLayers = 6; // Cubemapとして扱うため
-	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
-	imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageCI.queueFamilyIndexCount = 0;
-	imageCI.pQueueFamilyIndices = nullptr;
-	imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-	VkResult result = vkCreateImage(m_device, &imageCI, nullptr, &m_cubemapRendered.image);
-	ThrowIfFailed(result, "vkCreateImage Failed.");
-
-	m_cubemapRendered.memory = AllocateMemory(m_cubemapRendered.image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	result = vkBindImageMemory(m_device, m_cubemapRendered.image, m_cubemapRendered.memory, 0);
-	ThrowIfFailed(result, "vkBindImageMemory Failed.");
-
-	VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
-
-	VkImageViewCreateInfo viewCI{};
-	viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewCI.pNext = nullptr;
-	viewCI.flags = 0;
-	viewCI.image = m_cubemapRendered.image;
-	viewCI.viewType = VK_IMAGE_VIEW_TYPE_CUBE; // Cubemap用
-	viewCI.format = imageCI.format;
-	viewCI.components = book_util::DefaultComponentMapping();
-	viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	viewCI.subresourceRange.baseMipLevel = 0;
-	viewCI.subresourceRange.levelCount = 1;
-	viewCI.subresourceRange.baseArrayLayer = 0;
-	viewCI.subresourceRange.layerCount = 1; // 書き込みなので1
-
-	result = vkCreateImageView(m_device, &viewCI, nullptr, &m_cubemapRendered.view);
-	ThrowIfFailed(result, "vkCreateImageView Failed.");
-
-	// 周辺へのティーポットのインスタンス配置用のユニフォームバッファの準備
-	// 値を動的に変更しないのでダブルバッファ用に2つ作る必要がない
-	uint32_t bufferSize = uint32_t(sizeof(TeapotInstanceParameters));
-	m_cubemapEnvUniform = CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	TeapotInstanceParameters params{};
-	params.world[0] = glm::translate(glm::mat4(1.0f), glm::vec3(5.0f, 0.0f, 0.0f));
-	params.world[1] = glm::translate(glm::mat4(1.0f), glm::vec3(-5.0f, 0.0f, 0.0f));
-	params.world[2] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 5.0f, 0.0f));
-	params.world[3] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -5.0f, 0.0f));
-	params.world[4] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f));
-	params.world[5] = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
-	params.colors[0] = glm::vec4(0.6f, 1.0f, 0.6f, 1.0f);
-	params.colors[1] = glm::vec4(0.0f, 0.75f, 1.0f, 1.0f);
-	params.colors[2] = glm::vec4(0.0f, 0.5f, 1.0f, 1.0f);
-	params.colors[3] = glm::vec4(0.5f, 0.5f, 0.25f, 1.0f);
-	params.colors[4] = glm::vec4(1.0f, 0.1f, 0.6f, 1.0f);
-	params.colors[5] = glm::vec4(1.0f, 0.55f, 0.0f, 1.0f);
-
-	WriteToHostVisibleMemory(m_cubemapEnvUniform.memory, bufferSize, &params);
-
 	// サンプラーの準備。これは2Dテクスチャのときと何も変わらない
 	VkSamplerCreateInfo samplerCI{};
 	samplerCI.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -503,7 +367,7 @@ void TessellateTeapotApp::PrepareSceneResource()
 	samplerCI.maxLod = 1.0f;
 	samplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 	samplerCI.unnormalizedCoordinates = VK_FALSE;
-	result = vkCreateSampler(m_device, &samplerCI, nullptr, &m_cubemapSampler);
+	VkResult result = vkCreateSampler(m_device, &samplerCI, nullptr, &m_cubemapSampler);
 	ThrowIfFailed(result, "vkCreateSampler Failed.");
 }
 
@@ -841,40 +705,6 @@ void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
 		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
 	}
 
-	// 動的に描画したキューブマップを使用して描画するパスのディスクリプタを準備
-	m_centerTeapot.dsCubemapRendered.resize(imageCount);
-	for (uint32_t i = 0; i < imageCount; ++i)
-	{
-		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
-		m_centerTeapot.dsCubemapRendered[i] = ds;
-
-		VkDescriptorBufferInfo sceneUBO{};
-		sceneUBO.buffer = m_centerTeapot.sceneUBO[i].buffer;
-		sceneUBO.offset = 0;
-		sceneUBO.range = VK_WHOLE_SIZE;
-
-		VkDescriptorImageInfo renderedCubemap{};
-		renderedCubemap.sampler = m_cubemapSampler;
-		renderedCubemap.imageView = m_cubemapRendered.view;
-		renderedCubemap.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		std::vector<VkWriteDescriptorSet> writeSet = {
-			book_util::CreateWriteDescriptorSet(
-				ds,
-				0,
-				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-				&sceneUBO
-			),
-			book_util::CreateWriteDescriptorSet(
-				ds,
-				1,
-				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				&renderedCubemap
-			)
-		};
-
-		vkUpdateDescriptorSets(m_device, uint32_t(writeSet.size()), writeSet.data(), 0, nullptr);
-	}
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
 		book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
@@ -884,182 +714,6 @@ void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	m_centerTeapot.pipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u1t1", shaderStages);
 	book_util::DestroyShaderModules(m_device, shaderStages);
-}
-
-void TessellateTeapotApp::PrepareRenderTargetForMultiPass()
-{
-	VkResult result = VK_SUCCESS;
-
-	// vkImageViewをm_cubemapRenderedのキューブマップとしての
-	// VK_IMAGE_VIEW_TYPE_CUBEのひとつでなく
-	// 各テクスチャごとのVK_IMAGE_VIEW_TYPE_2Dのものを6つ用意する
-	for (int face = 0; face < 6; ++face)
-	{
-		VkImageViewCreateInfo viewCI{};
-		viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewCI.pNext = nullptr;
-		viewCI.flags = 0;
-		viewCI.image = m_cubemapRendered.image;
-		viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewCI.format = CubemapFormat;
-		viewCI.components = book_util::DefaultComponentMapping();
-		viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		viewCI.subresourceRange.baseMipLevel = 0;
-		viewCI.subresourceRange.levelCount = 1;
-		viewCI.subresourceRange.baseArrayLayer = uint32_t(face); // これでキューブマップ内の一面のみ2Dテクスチャビューとして扱う
-		viewCI.subresourceRange.layerCount = 1;
-		result = vkCreateImageView(m_device, &viewCI, nullptr, &m_cubeFaceScene.viewFaces[face]);
-		ThrowIfFailed(result, "vkCreateImageView Failed.");
-	}
-
-	// 描画先デプスバッファの準備
-	VkImageCreateInfo depthImageCI{};
-	depthImageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	depthImageCI.pNext = nullptr;
-	depthImageCI.flags = 0;
-	depthImageCI.imageType = VK_IMAGE_TYPE_2D;
-	depthImageCI.format = VK_FORMAT_D32_SFLOAT;
-	depthImageCI.extent.width = CubeEdge;
-	depthImageCI.extent.height = CubeEdge;
-	depthImageCI.extent.depth = 1;
-	depthImageCI.mipLevels = 1;
-	depthImageCI.arrayLayers = 1;
-	depthImageCI.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthImageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
-	depthImageCI.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	depthImageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	depthImageCI.queueFamilyIndexCount = 0;
-	depthImageCI.pQueueFamilyIndices = nullptr;
-	depthImageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	result = vkCreateImage(m_device, &depthImageCI, nullptr, &m_cubeFaceScene.depth.image);
-	ThrowIfFailed(result, "vkCreateImage Failed.");
-
-	m_cubeFaceScene.depth.memory = AllocateMemory(m_cubeFaceScene.depth.image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	result = vkBindImageMemory(m_device, m_cubeFaceScene.depth.image, m_cubeFaceScene.depth.memory, 0);
-	ThrowIfFailed(result, "vkBindImageMemory Failed.");
-
-	VkImageViewCreateInfo depthViewCI{};
-	depthViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	depthViewCI.pNext = nullptr;
-	depthViewCI.flags = 0;
-	depthViewCI.image = m_cubeFaceScene.depth.image;
-	depthViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	depthViewCI.format = depthImageCI.format;
-	depthViewCI.components = book_util::DefaultComponentMapping();
-	depthViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-	depthViewCI.subresourceRange.baseMipLevel = 0;
-	depthViewCI.subresourceRange.levelCount = 1;
-	depthViewCI.subresourceRange.baseArrayLayer = 0;
-	depthViewCI.subresourceRange.layerCount = 1;
-	result = vkCreateImageView(m_device, &depthViewCI, nullptr, &m_cubeFaceScene.depth.view);
-	ThrowIfFailed(result, "vkCreateImageView Failed.");
-
-	m_cubeFaceScene.renderPass = GetRenderPass("cubemap");
-
-	for (int i = 0; i < 6; ++i)
-	{
-		std::array<VkImageView, 2> attachments;
-		attachments[0] = m_cubeFaceScene.viewFaces[i];
-		attachments[1] = m_cubeFaceScene.depth.view;
-
-		VkFramebufferCreateInfo fbCI{};
-		fbCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		fbCI.pNext = nullptr;
-		fbCI.flags = 0;
-		fbCI.renderPass = m_cubeFaceScene.renderPass;
-		fbCI.attachmentCount = uint32_t(attachments.size());
-		fbCI.pAttachments = attachments.data();
-		fbCI.width = CubeEdge;
-		fbCI.height = CubeEdge;
-		fbCI.layers = 1;
-
-		result = vkCreateFramebuffer(m_device, &fbCI, nullptr, &m_cubeFaceScene.fbFaces[i]);
-		ThrowIfFailed(result, "vkCreateFramebuffer Failed.");
-	}
-}
-
-void TessellateTeapotApp::PrepareRenderTargetForSinglePass()
-{
-	VkImageViewCreateInfo viewCI{};
-	viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewCI.pNext = nullptr;
-	viewCI.flags = 0;
-	viewCI.image = m_cubemapRendered.image;
-	viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D; //ここは2Dでいいらしい。CUBEもあるのに
-	viewCI.format = CubemapFormat;
-	viewCI.components = book_util::DefaultComponentMapping();
-	viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	viewCI.subresourceRange.baseMipLevel = 0;
-	viewCI.subresourceRange.levelCount = 1;
-	viewCI.subresourceRange.baseArrayLayer = 0; // 6面を別々に扱うのと違ってここが0になる
-	viewCI.subresourceRange.layerCount = 6; // レイヤーの数が6。シェーダでのgl_Layerと対応。
-	VkResult result = vkCreateImageView(m_device, &viewCI, nullptr, &m_cubeScene.view);
-	ThrowIfFailed(result, "vkCreateImageView Failed.");
-
-	// 描画先デプスバッファの準備
-	VkImageCreateInfo depthImageCI{};
-	depthImageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	depthImageCI.pNext = nullptr;
-	depthImageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // DepthもCubemapのサイズ分が必要
-	depthImageCI.imageType = VK_IMAGE_TYPE_2D;
-	depthImageCI.format = VK_FORMAT_D32_SFLOAT;
-	depthImageCI.extent.width = CubeEdge;
-	depthImageCI.extent.height = CubeEdge;
-	depthImageCI.extent.depth = 1;
-	depthImageCI.mipLevels = 1;
-	depthImageCI.arrayLayers = 6; // レイヤーの数が6。シェーダでのgl_Layerと対応。
-	depthImageCI.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthImageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
-	depthImageCI.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	depthImageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	depthImageCI.queueFamilyIndexCount = 0;
-	depthImageCI.pQueueFamilyIndices = nullptr;
-	depthImageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	result = vkCreateImage(m_device, &depthImageCI, nullptr, &m_cubeScene.depth.image);
-	ThrowIfFailed(result, "vkCreateImage Failed.");
-
-	m_cubeScene.depth.memory = AllocateMemory(m_cubeScene.depth.image, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	result = vkBindImageMemory(m_device, m_cubeScene.depth.image, m_cubeScene.depth.memory, 0);
-	ThrowIfFailed(result, "vkBindImageMemory Failed.");
-
-	VkImageViewCreateInfo depthViewCI{};
-	depthViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	depthViewCI.pNext = nullptr;
-	depthViewCI.flags = 0;
-	depthViewCI.image = m_cubeScene.depth.image;
-	depthViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D; // なぜかviewは常に2D
-	depthViewCI.format = depthImageCI.format;
-	depthViewCI.components = book_util::DefaultComponentMapping();
-	depthViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-	depthViewCI.subresourceRange.baseMipLevel = 0;
-	depthViewCI.subresourceRange.levelCount = 1;
-	depthViewCI.subresourceRange.baseArrayLayer = 0;
-	depthViewCI.subresourceRange.layerCount = 6; // レイヤーの数が6。シェーダでのgl_Layerと対応。
-	result = vkCreateImageView(m_device, &depthViewCI, nullptr, &m_cubeScene.depth.view);
-	ThrowIfFailed(result, "vkCreateImageView Failed.");
-
-	m_cubeScene.renderPass = GetRenderPass("cubemap");
-
-	// 6つの面（VkImageView）へ接続するVkFramebufferを準備
-	// VkFramebufferもCubemapに対応したものをがひとつあればいい。
-	// レイヤー数だけ6になる
-	std::array<VkImageView, 2> attachments;
-	attachments[0] = m_cubeScene.view;
-	attachments[1] = m_cubeScene.depth.view;
-
-	VkFramebufferCreateInfo fbCI{};
-	fbCI.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	fbCI.pNext = nullptr;
-	fbCI.flags = 0;
-	fbCI.renderPass = m_cubeScene.renderPass;
-	fbCI.attachmentCount = uint32_t(attachments.size());
-	fbCI.pAttachments = attachments.data();
-	fbCI.width = CubeEdge;
-	fbCI.height = CubeEdge;
-	fbCI.layers = 6; // レイヤーの数が6。シェーダでのgl_Layerと対応。
-
-	result = vkCreateFramebuffer(m_device, &fbCI, nullptr, &m_cubeScene.framebuffer);
-	ThrowIfFailed(result, "vkCreateFramebuffer Failed.");
 }
 
 void TessellateTeapotApp::CreateSampleLayouts()

@@ -34,7 +34,6 @@ private:
 	Camera m_camera;
 	ModelData m_teapot;
 	ImageObject m_staticCubemap;
-	ImageObject m_cubemapRendered;
 	VkSampler m_cubemapSampler = VK_NULL_HANDLE;
 
 	struct ShaderParameters
@@ -45,28 +44,6 @@ private:
 		glm::vec4 lightDir;
 		glm::vec4 cameraPos;
 	};
-
-	struct TeapotInstanceParameters
-	{
-		glm::mat4 world[6];
-		glm::vec4 colors[6];
-	};
-
-	struct ViewProjMatrices
-	{
-		glm::mat4 view;
-		glm::mat4 proj;
-		glm::vec4 lightDir;
-	};
-
-	struct MultiViewProjMatrices
-	{
-		glm::mat4 view[6];
-		glm::mat4 proj;
-		glm::vec4 lightDir;
-	};
-
-	BufferObject m_cubemapEnvUniform;
 
 	// 中心のティーポット
 	struct CenterTeapot
@@ -112,14 +89,8 @@ private:
 		const std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	);
 
-	void PrepareRenderTargetForMultiPass();
-	void PrepareRenderTargetForSinglePass();
 	void PrepareCenterTeapotDescriptos();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
-
-	// リソースバリアの設定
-	void BarrierRTToTexture(const VkCommandBuffer& command);
-	void BarrierTextureToRT(const VkCommandBuffer& command);
 };
 
