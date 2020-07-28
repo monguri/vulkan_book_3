@@ -152,8 +152,6 @@ private:
 	void PrepareRenderTargetForSinglePass();
 	void PrepareCenterTeapotDescriptos();
 	void PrepareAroundTeapotDescriptos();
-	void RenderCubemapFaces(const VkCommandBuffer& command);
-	void RenderCubemapOnce(const VkCommandBuffer& command);
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
 
