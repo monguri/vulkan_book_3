@@ -1,4 +1,4 @@
-#include "CubemapRenderingApp.h"
+#include "TessellateTeapotApp.h"
 #include "VulkanBookUtil.h"
 
 const int WindowWidth = 800, WindowHeight = 600;
