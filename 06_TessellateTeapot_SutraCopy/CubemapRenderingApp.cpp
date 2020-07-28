@@ -13,7 +13,7 @@
 
 #include <array>
 
-CubemapRenderingApp::CubemapRenderingApp()
+TessellateTeapotApp::TessellateTeapotApp()
 {
 	m_camera.SetLookAt(
 		glm::vec3(0.0f, 2.0f, 10.0f),
@@ -21,7 +21,7 @@ CubemapRenderingApp::CubemapRenderingApp()
 	);
 }
 
-void CubemapRenderingApp::Prepare()
+void TessellateTeapotApp::Prepare()
 {
 	CreateSampleLayouts();
 
@@ -59,7 +59,7 @@ void CubemapRenderingApp::Prepare()
 	m_teapot = CreateSimpleModel(vertices, indices);
 }
 
-void CubemapRenderingApp::Cleanup()
+void TessellateTeapotApp::Cleanup()
 {
 	DestroyBuffer(m_teapot.resVertexBuffer);
 	DestroyBuffer(m_teapot.resIndexBuffer);
@@ -181,7 +181,7 @@ void CubemapRenderingApp::Cleanup()
 	m_commandBuffers.clear();
 }
 
-bool CubemapRenderingApp::OnMouseButtonDown(int button)
+bool TessellateTeapotApp::OnMouseButtonDown(int button)
 {
 	if (VulkanAppBase::OnMouseButtonDown(button))
 	{
@@ -192,7 +192,7 @@ bool CubemapRenderingApp::OnMouseButtonDown(int button)
 	return true;
 }
 
-bool CubemapRenderingApp::OnMouseButtonUp(int button)
+bool TessellateTeapotApp::OnMouseButtonUp(int button)
 {
 	if (VulkanAppBase::OnMouseButtonUp(button))
 	{
@@ -203,7 +203,7 @@ bool CubemapRenderingApp::OnMouseButtonUp(int button)
 	return true;
 }
 
-bool CubemapRenderingApp::OnMouseMove(int dx, int dy)
+bool TessellateTeapotApp::OnMouseMove(int dx, int dy)
 {
 	if (VulkanAppBase::OnMouseMove(dx, dy))
 	{
@@ -214,7 +214,7 @@ bool CubemapRenderingApp::OnMouseMove(int dx, int dy)
 	return true;
 }
 
-void CubemapRenderingApp::Render()
+void TessellateTeapotApp::Render()
 {
 	if (m_isMinimizedWindow)
 	{
@@ -336,13 +336,13 @@ void CubemapRenderingApp::Render()
 
 	switch (m_mode)
 	{
-		case CubemapRenderingApp::Mode_StaticCubemap:
+		case TessellateTeapotApp::Mode_StaticCubemap:
 			// 何もしない
 			break;
-		case CubemapRenderingApp::Mode_MultiPassCubemap:
+		case TessellateTeapotApp::Mode_MultiPassCubemap:
 			RenderCubemapFaces(command);
 			break;
-		case CubemapRenderingApp::Mode_SinglePassCubemap:
+		case TessellateTeapotApp::Mode_SinglePassCubemap:
 			RenderCubemapOnce(command);
 			break;
 		default:
@@ -387,7 +387,7 @@ void CubemapRenderingApp::Render()
 	m_swapchain->QueuePresent(m_deviceQueue, m_imageIndex, m_renderCompletedSem);
 }
 
-void CubemapRenderingApp::RenderCubemapFaces(const VkCommandBuffer& command)
+void TessellateTeapotApp::RenderCubemapFaces(const VkCommandBuffer& command)
 {
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -450,7 +450,7 @@ void CubemapRenderingApp::RenderCubemapFaces(const VkCommandBuffer& command)
 	}
 }
 
-void CubemapRenderingApp::RenderCubemapOnce(const VkCommandBuffer& command)
+void TessellateTeapotApp::RenderCubemapOnce(const VkCommandBuffer& command)
 {
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -508,7 +508,7 @@ void CubemapRenderingApp::RenderCubemapOnce(const VkCommandBuffer& command)
 	vkCmdEndRenderPass(command);
 }
 
-void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
+void TessellateTeapotApp::RenderToMain(const VkCommandBuffer& command)
 {
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	const VkViewport& viewport = book_util::GetViewportFlipped(float(extent.width), float(extent.height));
@@ -529,11 +529,11 @@ void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
 	VkDescriptorSet ds = VK_NULL_HANDLE;
 	switch (m_mode)
 	{
-		case CubemapRenderingApp::Mode_StaticCubemap:
+		case TessellateTeapotApp::Mode_StaticCubemap:
 			ds = m_centerTeapot.dsCubemapStatic[m_imageIndex];
 			break;
-		case CubemapRenderingApp::Mode_MultiPassCubemap:
-		case CubemapRenderingApp::Mode_SinglePassCubemap:
+		case TessellateTeapotApp::Mode_MultiPassCubemap:
+		case TessellateTeapotApp::Mode_SinglePassCubemap:
 			ds = m_centerTeapot.dsCubemapRendered[m_imageIndex];
 			break;
 		default:
@@ -557,7 +557,7 @@ void CubemapRenderingApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdDrawIndexed(command, m_teapot.indexCount, 6, 0, 0, 0); // 6個描画する
 }
 
-void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
+void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -573,7 +573,7 @@ void CubemapRenderingApp::RenderHUD(const VkCommandBuffer& command)
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
 }
 
-void CubemapRenderingApp::BarrierRTToTexture(const VkCommandBuffer& command)
+void TessellateTeapotApp::BarrierRTToTexture(const VkCommandBuffer& command)
 {
 	VkImageMemoryBarrier imageBarrier{};
 	imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -602,7 +602,7 @@ void CubemapRenderingApp::BarrierRTToTexture(const VkCommandBuffer& command)
 	);
 }
 
-void CubemapRenderingApp::BarrierTextureToRT(const VkCommandBuffer& command)
+void TessellateTeapotApp::BarrierTextureToRT(const VkCommandBuffer& command)
 {
 	VkImageMemoryBarrier imageBarrier{};
 	imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -631,14 +631,14 @@ void CubemapRenderingApp::BarrierTextureToRT(const VkCommandBuffer& command)
 	);
 }
 
-void CubemapRenderingApp::PrepareDepthbuffer()
+void TessellateTeapotApp::PrepareDepthbuffer()
 {
 	// デプスバッファを準備する
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	m_depthBuffer = CreateImage(extent.width, extent.height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-void CubemapRenderingApp::PrepareFramebuffers()
+void TessellateTeapotApp::PrepareFramebuffers()
 {
 	uint32_t imageCount = m_swapchain->GetImageCount();
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
@@ -655,7 +655,7 @@ void CubemapRenderingApp::PrepareFramebuffers()
 	}
 }
 
-bool CubemapRenderingApp::OnSizeChanged(uint32_t width, uint32_t height)
+bool TessellateTeapotApp::OnSizeChanged(uint32_t width, uint32_t height)
 {
 	bool isResized = VulkanAppBase::OnSizeChanged(width, height);
 	if (isResized)
@@ -676,7 +676,7 @@ bool CubemapRenderingApp::OnSizeChanged(uint32_t width, uint32_t height)
 	return isResized;
 }
 
-void CubemapRenderingApp::PrepareSceneResource()
+void TessellateTeapotApp::PrepareSceneResource()
 {
 	// 静的なキューブマップの準備
 	const char* files[6] = {
@@ -780,7 +780,7 @@ void CubemapRenderingApp::PrepareSceneResource()
 	ThrowIfFailed(result, "vkCreateSampler Failed.");
 }
 
-VulkanAppBase::ImageObject CubemapRenderingApp::LoadCubeTextureFromFile(const char* faceFiles[6])
+VulkanAppBase::ImageObject TessellateTeapotApp::LoadCubeTextureFromFile(const char* faceFiles[6])
 {
 	int width, height = 0;
 	stbi_uc* faceImages[6] = { nullptr };
@@ -943,7 +943,7 @@ VulkanAppBase::ImageObject CubemapRenderingApp::LoadCubeTextureFromFile(const ch
 	return cubemap;
 }
 
-VkPipeline CubemapRenderingApp::CreateRenderTeapotPipeline(
+VkPipeline TessellateTeapotApp::CreateRenderTeapotPipeline(
 	const std::string& renderPassName,
 	uint32_t width,
 	uint32_t height,
@@ -1071,7 +1071,7 @@ VkPipeline CubemapRenderingApp::CreateRenderTeapotPipeline(
 	return pipeline;
 }
 
-void CubemapRenderingApp::PrepareCenterTeapotDescriptos()
+void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
 {
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1t1");
 	uint32_t imageCount = m_swapchain->GetImageCount();
@@ -1159,7 +1159,7 @@ void CubemapRenderingApp::PrepareCenterTeapotDescriptos()
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
-void CubemapRenderingApp::PrepareAroundTeapotDescriptos()
+void TessellateTeapotApp::PrepareAroundTeapotDescriptos()
 {
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u2");
 	uint32_t imageCount = m_swapchain->GetImageCount();
@@ -1312,7 +1312,7 @@ void CubemapRenderingApp::PrepareAroundTeapotDescriptos()
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
-void CubemapRenderingApp::PrepareRenderTargetForMultiPass()
+void TessellateTeapotApp::PrepareRenderTargetForMultiPass()
 {
 	VkResult result = VK_SUCCESS;
 
@@ -1404,7 +1404,7 @@ void CubemapRenderingApp::PrepareRenderTargetForMultiPass()
 	}
 }
 
-void CubemapRenderingApp::PrepareRenderTargetForSinglePass()
+void TessellateTeapotApp::PrepareRenderTargetForSinglePass()
 {
 	VkImageViewCreateInfo viewCI{};
 	viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -1488,7 +1488,7 @@ void CubemapRenderingApp::PrepareRenderTargetForSinglePass()
 	ThrowIfFailed(result, "vkCreateFramebuffer Failed.");
 }
 
-void CubemapRenderingApp::CreateSampleLayouts()
+void TessellateTeapotApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
 	std::array<VkDescriptorSetLayoutBinding, 2> descSetLayoutBindings;

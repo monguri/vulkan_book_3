@@ -3,10 +3,10 @@
 #include <glm/glm.hpp>
 #include "Camera.h"
 
-class CubemapRenderingApp : public VulkanAppBase
+class TessellateTeapotApp : public VulkanAppBase
 {
 public:
-	CubemapRenderingApp();
+	TessellateTeapotApp();
 
 	virtual void Prepare() override;
 	virtual void Cleanup() override;

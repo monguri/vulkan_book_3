@@ -2,7 +2,7 @@
 #include "VulkanBookUtil.h"
 
 const int WindowWidth = 800, WindowHeight = 600;
-const char* AppTile = "CubemapRendering";
+const char* AppTile = "TessellateTeapot";
 
 static void KeyboardInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -102,7 +102,7 @@ int _stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 	glfwSetScrollCallback(window, MouseWheelCallback);
 	glfwSetWindowSizeCallback(window, WindowResizeCallback);
 
-	CubemapRenderingApp theApp;
+	TessellateTeapotApp theApp;
 	glfwSetWindowUserPointer(window, &theApp);
 
 	try
