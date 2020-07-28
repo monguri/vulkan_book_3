@@ -19,6 +19,9 @@
     <Filter Include="ヘッダー ファイル\imgui">
       <UniqueIdentifier>{5f5982b6-4dca-4bbe-94a6-a6abe9f3d031}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{7d7b1434-68fc-49e5-b090-62d6b4cde409}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp">
@@ -104,5 +107,26 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Shader\cubemapFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\cubemapGS.geom">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\cubemapVS.vert">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\shaderFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\shaderVS.vert">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\teapotFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\teapotVS.vert">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
 </Project>
