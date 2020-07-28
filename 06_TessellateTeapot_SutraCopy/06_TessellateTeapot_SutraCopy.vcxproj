@@ -119,6 +119,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\commonSutraCopy\Swapchain.cpp" />
+    <ClCompile Include="..\commonSutraCopy\VulkanAppBase.cpp" />
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="CubemapRenderingApp.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\commonSutraCopy\stb_image.h" />
+    <ClInclude Include="..\commonSutraCopy\Swapchain.h" />
+    <ClInclude Include="..\commonSutraCopy\TeapotModel.h" />
+    <ClInclude Include="..\commonSutraCopy\VulkanAppBase.h" />
+    <ClInclude Include="..\commonSutraCopy\VulkanBookUtil.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="CubemapRenderingApp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
