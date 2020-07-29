@@ -50,15 +50,7 @@ private:
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
-	VkPipeline CreateRenderTeapotPipeline(
-		const std::string& renderPassName,
-		uint32_t width,
-		uint32_t height,
-		const std::string& layoutName,
-		const std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-	);
-
-	void PrepareCenterTeapotDescriptos();
+	void PrepareTessTeapot();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
 };

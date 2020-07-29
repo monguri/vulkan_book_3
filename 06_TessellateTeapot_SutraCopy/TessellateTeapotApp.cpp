@@ -41,7 +41,7 @@ void TessellateTeapotApp::Prepare()
 		c.commandBuffer = CreateCommandBuffer(false); // コマンドバッファは開始状態にしない
 	}
 
-	PrepareCenterTeapotDescriptos();
+	PrepareTessTeapot();
 
 	// ティーポットのモデルをロード
 	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
@@ -301,13 +301,7 @@ bool TessellateTeapotApp::OnSizeChanged(uint32_t width, uint32_t height)
 	return isResized;
 }
 
-VkPipeline TessellateTeapotApp::CreateRenderTeapotPipeline(
-	const std::string& renderPassName,
-	uint32_t width,
-	uint32_t height,
-	const std::string& layoutName,
-	const std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-)
+void TessellateTeapotApp::PrepareTessTeapot()
 {
 	// 頂点の入力の設定
 	uint32_t stride = uint32_t(sizeof(TeapotModel::Vertex));
@@ -368,13 +362,13 @@ VkPipeline TessellateTeapotApp::CreateRenderTeapotPipeline(
 	multisampleCI.alphaToCoverageEnable = VK_FALSE;
 	multisampleCI.alphaToOneEnable = VK_FALSE;
 	
-	const VkViewport& viewport = book_util::GetViewportFlipped(float(width), float(height));
+	const VkExtent2D& extentBackBuffer = m_swapchain->GetSurfaceExtent();
+	const VkViewport& viewport = book_util::GetViewportFlipped(float(extentBackBuffer.width), float(extentBackBuffer.height));
 
 	VkRect2D scissor{};
 	scissor.offset.x = 0;
 	scissor.offset.y = 0;
-	scissor.extent.width = width;
-	scissor.extent.height = height;
+	scissor.extent = extentBackBuffer;
 
 	VkPipelineViewportStateCreateInfo viewportStateCI{};
 	viewportStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -401,6 +395,12 @@ VkPipeline TessellateTeapotApp::CreateRenderTeapotPipeline(
 	pipelineDynamicStateCI.dynamicStateCount = uint32_t(dynamicStates.size());
 	pipelineDynamicStateCI.pDynamicStates = dynamicStates.data();
 
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
+	{
+		book_util::LoadShader(m_device, "tessTeapotVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+		book_util::LoadShader(m_device, "tessTeapotFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+	};
+
 	// パイプライン構築
 	VkGraphicsPipelineCreateInfo pipelineCI{};
 	pipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -417,20 +417,14 @@ VkPipeline TessellateTeapotApp::CreateRenderTeapotPipeline(
 	pipelineCI.pDepthStencilState = &dsState;
 	pipelineCI.pColorBlendState = &colorBlendStateCI;
 	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
-	pipelineCI.layout = GetPipelineLayout(layoutName);
-	pipelineCI.renderPass = GetRenderPass(renderPassName);
+	pipelineCI.layout = GetPipelineLayout("u1");
+	pipelineCI.renderPass = GetRenderPass("default");
 	pipelineCI.subpass = 0;
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCI.basePipelineIndex = 0;
 
-	VkPipeline pipeline = VK_NULL_HANDLE;
-	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &pipeline);
+	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessTeapotPipeline);
 	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
-	return pipeline;
-}
-
-void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
-{
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
 	uint32_t imageCount = m_swapchain->GetImageCount();
 
@@ -459,14 +453,6 @@ void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
 		vkUpdateDescriptorSets(m_device, 1, &writeSet, 0, nullptr);
 	}
 
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-	{
-		book_util::LoadShader(m_device, "tessTeapotVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-		book_util::LoadShader(m_device, "tessTeapotFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
-	};
-
-	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
-	m_tessTeapotPipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u1", shaderStages);
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
