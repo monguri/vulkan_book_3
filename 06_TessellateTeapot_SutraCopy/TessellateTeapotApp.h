@@ -34,7 +34,7 @@ private:
 	Camera m_camera;
 	ModelData m_teapot;
 
-	struct ShaderParameters
+	struct TessellationShaderParameters
 	{
 		glm::mat4 world;
 		glm::mat4 view;
@@ -43,14 +43,9 @@ private:
 		glm::vec4 cameraPos;
 	};
 
-	// 中心のティーポット
-	struct CenterTeapot
-	{
-		std::vector<VkDescriptorSet> dsCubemapStatic;
-		std::vector<BufferObject> sceneUBO;
-		VkPipeline pipeline;
-	};
-	CenterTeapot m_centerTeapot;
+	std::vector<BufferObject> m_tessTeapotUniform;
+	std::vector<VkDescriptorSet> m_dsTeapot;
+	VkPipeline m_tessTeapotPipeline = VK_NULL_HANDLE;
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();

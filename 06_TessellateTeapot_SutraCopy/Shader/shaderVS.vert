@@ -11,7 +11,7 @@ out gl_PerVertex
 };
 
 layout(set=0, binding=0)
-uniform SceneParameters
+uniform TesseSceneParameters
 {
 	mat4 world;
 	mat4 view;

@@ -56,20 +56,20 @@ void TessellateTeapotApp::Cleanup()
 
 	// CenterTeapot
 	{
-		vkDestroyPipeline(m_device, m_centerTeapot.pipeline, nullptr);
+		vkDestroyPipeline(m_device, m_tessTeapotPipeline, nullptr);
 
-		for (const BufferObject& ubo : m_centerTeapot.sceneUBO)
+		for (const BufferObject& ubo : m_tessTeapotUniform)
 		{
 			DestroyBuffer(ubo);
 		}
-		m_centerTeapot.sceneUBO.clear();
+		m_tessTeapotUniform.clear();
 
-		for (const VkDescriptorSet& ds : m_centerTeapot.dsCubemapStatic)
+		for (const VkDescriptorSet& ds : m_dsTeapot)
 		{
 			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
 			DeallocateDescriptorset(ds);
 		}
-		m_centerTeapot.dsCubemapStatic.clear();
+		m_dsTeapot.clear();
 	}
 
 	DestroyImage(m_depthBuffer);
@@ -133,7 +133,7 @@ void TessellateTeapotApp::Render()
 
 	{
 		// 中央ティーポット用の定数バッファへの値の設定
-		ShaderParameters shaderParam{};
+		TessellationShaderParameters shaderParam{};
 		shaderParam.world = glm::mat4(1.0f);
 		shaderParam.view = m_camera.GetViewMatrix();
 		const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
@@ -145,7 +145,7 @@ void TessellateTeapotApp::Render()
 		);
 		shaderParam.lightDir = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
 		shaderParam.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		WriteToHostVisibleMemory(m_centerTeapot.sceneUBO[m_imageIndex].memory, sizeof(shaderParam), &shaderParam);
+		WriteToHostVisibleMemory(m_tessTeapotUniform[m_imageIndex].memory, sizeof(shaderParam), &shaderParam);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -229,9 +229,9 @@ void TessellateTeapotApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
 	// 中央ティーポットの描画
-	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_centerTeapot.pipeline);
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessTeapotPipeline);
 
-	VkDescriptorSet ds = m_centerTeapot.dsCubemapStatic[m_imageIndex];
+	VkDescriptorSet ds = m_dsTeapot[m_imageIndex];
 
 	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1");
 	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
@@ -434,26 +434,26 @@ void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
 	uint32_t imageCount = m_swapchain->GetImageCount();
 
-	uint32_t bufferSize = uint32_t(sizeof(ShaderParameters));
-	m_centerTeapot.sceneUBO = CreateUniformBuffers(bufferSize, imageCount);
+	uint32_t bufferSize = uint32_t(sizeof(TessellationShaderParameters));
+	m_tessTeapotUniform = CreateUniformBuffers(bufferSize, imageCount);
 
 	// ファイルから読み込んだキューブマップを使用して描画するパスのディスクリプタを準備
-	m_centerTeapot.dsCubemapStatic.resize(imageCount);
+	m_dsTeapot.resize(imageCount);
 	for (uint32_t i = 0; i < imageCount; ++i)
 	{
 		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
-		m_centerTeapot.dsCubemapStatic[i] = ds;
+		m_dsTeapot[i] = ds;
 
-		VkDescriptorBufferInfo sceneUBO{};
-		sceneUBO.buffer = m_centerTeapot.sceneUBO[i].buffer;
-		sceneUBO.offset = 0;
-		sceneUBO.range = VK_WHOLE_SIZE;
+		VkDescriptorBufferInfo bufferInfo{};
+		bufferInfo.buffer = m_tessTeapotUniform[i].buffer;
+		bufferInfo.offset = 0;
+		bufferInfo.range = VK_WHOLE_SIZE;
 
 		VkWriteDescriptorSet writeSet = book_util::CreateWriteDescriptorSet(
 			ds,
 			0,
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			&sceneUBO
+			&bufferInfo
 		);
 
 		vkUpdateDescriptorSets(m_device, 1, &writeSet, 0, nullptr);
@@ -466,7 +466,7 @@ void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
 	};
 
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
-	m_centerTeapot.pipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u1", shaderStages);
+	m_tessTeapotPipeline = CreateRenderTeapotPipeline("default", extent.width, extent.height, "u1", shaderStages);
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
