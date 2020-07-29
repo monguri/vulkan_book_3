@@ -4,8 +4,6 @@ layout(location=0) in vec4 inPos;
 layout(location=1) in vec3 inNormal;
 
 layout(location=0) out vec3 outColor;
-layout(location=1) out vec3 outNormal;
-layout(location=2) out vec4 outWorldPos;
 
 out gl_PerVertex
 {
@@ -29,7 +27,5 @@ void main()
 	vec3 worldNormal = mat3(world) * inNormal;
 	float l = dot(worldNormal, normalize(lightDir.xyz)) * 0.5 + 0.5;
 	outColor = vec3(l);
-	outNormal = worldNormal;
-	outWorldPos = world * inPos;
 }
 

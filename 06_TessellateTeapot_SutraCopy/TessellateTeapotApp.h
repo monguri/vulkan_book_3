@@ -33,8 +33,6 @@ private:
 
 	Camera m_camera;
 	ModelData m_teapot;
-	ImageObject m_staticCubemap;
-	VkSampler m_cubemapSampler = VK_NULL_HANDLE;
 
 	struct ShaderParameters
 	{
@@ -49,38 +47,14 @@ private:
 	struct CenterTeapot
 	{
 		std::vector<VkDescriptorSet> dsCubemapStatic;
-		std::vector<VkDescriptorSet> dsCubemapRendered;
 		std::vector<BufferObject> sceneUBO;
 		VkPipeline pipeline;
 	};
 	CenterTeapot m_centerTeapot;
 
-	struct CubeFaceScene
-	{
-		VkImageView viewFaces[6];
-		ImageObject depth;
-		VkFramebuffer fbFaces[6];
-		VkRenderPass renderPass;
-	};
-	CubeFaceScene m_cubeFaceScene;
-
-	struct CubemapSingleScene
-	{
-		VkImageView view;
-		ImageObject depth;
-		VkFramebuffer framebuffer;
-		VkRenderPass renderPass;
-	};
-	CubemapSingleScene m_cubeScene;
-
-	const uint32_t CubeEdge = 512;
-	const VkFormat CubemapFormat = VK_FORMAT_R8G8B8A8_UNORM;
-
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
-	void PrepareSceneResource();
-	ImageObject LoadCubeTextureFromFile(const char* faceFiles[6]);
 	VkPipeline CreateRenderTeapotPipeline(
 		const std::string& renderPassName,
 		uint32_t width,
