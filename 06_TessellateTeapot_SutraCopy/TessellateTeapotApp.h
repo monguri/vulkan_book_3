@@ -32,7 +32,6 @@ private:
 	uint32_t m_imageIndex = 0;
 
 	Camera m_camera;
-	ModelData m_teapot;
 
 	struct TessellationShaderParameters
 	{
@@ -41,11 +40,16 @@ private:
 		glm::mat4 proj;
 		glm::vec4 lightDir;
 		glm::vec4 cameraPos;
+		float tessOuterLevel = 1.0f;
+		float tessInnerLevel = 1.0f;
 	};
 
 	std::vector<BufferObject> m_tessTeapotUniform;
 	std::vector<VkDescriptorSet> m_dsTeapot;
 	VkPipeline m_tessTeapotPipeline = VK_NULL_HANDLE;
+	ModelData m_tessTeapot;
+
+	float m_tessFactor = 1.0f;
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();

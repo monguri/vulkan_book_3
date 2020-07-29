@@ -18,6 +18,8 @@ uniform TesseSceneParameters
 	mat4 proj;
 	vec4 lightDir;
 	vec4 cameraPos;
+	float tessOuterLevel;
+	float tessInnerLevel;
 };
 
 void main()

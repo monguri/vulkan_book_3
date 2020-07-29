@@ -46,13 +46,13 @@ void TessellateTeapotApp::Prepare()
 	// ティーポットのモデルをロード
 	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
 	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
-	m_teapot = CreateSimpleModel(vertices, indices);
+	m_tessTeapot = CreateSimpleModel(vertices, indices);
 }
 
 void TessellateTeapotApp::Cleanup()
 {
-	DestroyBuffer(m_teapot.resVertexBuffer);
-	DestroyBuffer(m_teapot.resIndexBuffer);
+	DestroyBuffer(m_tessTeapot.resVertexBuffer);
+	DestroyBuffer(m_tessTeapot.resIndexBuffer);
 
 	// CenterTeapot
 	{
@@ -133,19 +133,21 @@ void TessellateTeapotApp::Render()
 
 	{
 		// 中央ティーポット用の定数バッファへの値の設定
-		TessellationShaderParameters shaderParam{};
-		shaderParam.world = glm::mat4(1.0f);
-		shaderParam.view = m_camera.GetViewMatrix();
+		TessellationShaderParameters tessParams{};
+		tessParams.world = glm::mat4(1.0f);
+		tessParams.view = m_camera.GetViewMatrix();
 		const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
-		shaderParam.proj = glm::perspectiveRH(
+		tessParams.proj = glm::perspectiveRH(
 			glm::radians(45.0f),
 			float(extent.width) / float(extent.height),
 			0.1f,
 			1000.0f
 		);
-		shaderParam.lightDir = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
-		shaderParam.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		WriteToHostVisibleMemory(m_tessTeapotUniform[m_imageIndex].memory, sizeof(shaderParam), &shaderParam);
+		tessParams.lightDir = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
+		tessParams.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
+		tessParams.tessOuterLevel = m_tessFactor;
+		tessParams.tessInnerLevel = m_tessFactor;
+		WriteToHostVisibleMemory(m_tessTeapotUniform[m_imageIndex].memory, sizeof(tessParams), &tessParams);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -235,10 +237,10 @@ void TessellateTeapotApp::RenderToMain(const VkCommandBuffer& command)
 
 	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1");
 	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
-	vkCmdBindIndexBuffer(command, m_teapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(command, m_tessTeapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command, 0, 1, &m_teapot.resVertexBuffer.buffer, offsets);
-	vkCmdDrawIndexed(command, m_teapot.indexCount, 1, 0, 0, 0);
+	vkCmdBindVertexBuffers(command, 0, 1, &m_tessTeapot.resVertexBuffer.buffer, offsets);
+	vkCmdDrawIndexed(command, m_tessTeapot.indexCount, 1, 0, 0, 0);
 }
 
 void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
@@ -250,6 +252,7 @@ void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
+	ImGui::SliderFloat("TessFactor", &m_tessFactor, 1.0f, 32.0f, "%.1f");
 	ImGui::End();
 
 	ImGui::Render();
