@@ -461,8 +461,8 @@ void TessellateTeapotApp::PrepareCenterTeapotDescriptos()
 
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
-		book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-		book_util::LoadShader(m_device, "shaderFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+		book_util::LoadShader(m_device, "tessTeapotVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+		book_util::LoadShader(m_device, "tessTeapotFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();

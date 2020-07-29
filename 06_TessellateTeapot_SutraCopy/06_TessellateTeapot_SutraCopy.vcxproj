@@ -150,7 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <CustomBuild Include="Shader\cubemapFS.frag">
+    <CustomBuild Include="Shader\tessTeapotFS.frag">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
@@ -159,52 +159,7 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
     </CustomBuild>
-    <CustomBuild Include="Shader\cubemapGS.geom">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S geom %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S geom %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Geometry Shader</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Geometry Shader</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-    </CustomBuild>
-    <CustomBuild Include="Shader\cubemapVS.vert">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Vertex Shader</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Vertex Shader</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-    </CustomBuild>
-    <CustomBuild Include="Shader\shaderFS.frag">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Fragment Shader</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Fragment Shader</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-    </CustomBuild>
-    <CustomBuild Include="Shader\shaderVS.vert">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Vertex Shader</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Vertex Shader</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-    </CustomBuild>
-    <CustomBuild Include="Shader\teapotFS.frag">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Fragment Shader</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Fragment Shader</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-    </CustomBuild>
-    <CustomBuild Include="Shader\teapotVS.vert">
+    <CustomBuild Include="Shader\tessTeapotVS.vert">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>

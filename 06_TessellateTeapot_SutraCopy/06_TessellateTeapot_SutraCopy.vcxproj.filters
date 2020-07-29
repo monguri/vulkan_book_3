@@ -107,26 +107,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="Shader\cubemapFS.frag">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\cubemapGS.geom">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\cubemapVS.vert">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\shaderFS.frag">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\shaderVS.vert">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\teapotFS.frag">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\teapotVS.vert">
-      <Filter>Shader</Filter>
-    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Shader\cubemapFS.frag" />
+    <CustomBuild Include="Shader\cubemapGS.geom" />
+    <CustomBuild Include="Shader\cubemapVS.vert" />
+    <CustomBuild Include="Shader\teapotFS.frag" />
+    <CustomBuild Include="Shader\teapotVS.vert" />
+    <CustomBuild Include="Shader\tessTeapotFS.frag" />
+    <CustomBuild Include="Shader\tessTeapotVS.vert" />
   </ItemGroup>
 </Project>
