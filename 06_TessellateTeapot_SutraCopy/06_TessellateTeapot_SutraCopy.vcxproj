@@ -128,13 +128,13 @@
     <ClCompile Include="..\common\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\common\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="TeapotPatch.cpp" />
     <ClCompile Include="TessellateTeapotApp.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\commonSutraCopy\stb_image.h" />
     <ClInclude Include="..\commonSutraCopy\Swapchain.h" />
-    <ClInclude Include="..\commonSutraCopy\TeapotModel.h" />
     <ClInclude Include="..\commonSutraCopy\VulkanAppBase.h" />
     <ClInclude Include="..\commonSutraCopy\VulkanBookUtil.h" />
     <ClInclude Include="..\common\imgui\examples\imgui_impl_glfw.h" />
@@ -146,6 +146,7 @@
     <ClInclude Include="..\common\imgui\imstb_textedit.h" />
     <ClInclude Include="..\common\imgui\imstb_truetype.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="TeapotPatch.h" />
     <ClInclude Include="TessellateTeapotApp.h" />
   </ItemGroup>
   <ItemGroup>
@@ -168,6 +169,25 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
     </CustomBuild>
+    <CustomBuild Include="Shader\tessTeapotTES.tese">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tese %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tese %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Tessellation Evaluate Shader</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Tessellation Evaluate Shader</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Shader\tessTeapotTCS.tesc">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tesc %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tesc %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Tessellation Control Shader</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Tessellation Control Shader</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+    </CustomBuild>
+    <None Include="TeapotPatch2.inc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -57,6 +57,9 @@
     <ClCompile Include="TessellateTeapotApp.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="TeapotPatch.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -66,9 +69,6 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="..\commonSutraCopy\Swapchain.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
-    <ClInclude Include="..\commonSutraCopy\TeapotModel.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="..\commonSutraCopy\VulkanAppBase.h">
@@ -104,15 +104,27 @@
     <ClInclude Include="TessellateTeapotApp.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="TeapotPatch.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="TeapotPatch2.inc">
+      <Filter>ヘッダー ファイル</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shader\tessTeapotFS.frag">
       <Filter>Shader</Filter>
     </CustomBuild>
     <CustomBuild Include="Shader\tessTeapotVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\tessTeapotTCS.tesc">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\tessTeapotTES.tese">
       <Filter>Shader</Filter>
     </CustomBuild>
   </ItemGroup>

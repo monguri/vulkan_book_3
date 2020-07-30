@@ -1,9 +1,10 @@
 #include "TessellateTeapotApp.h"
 #include "VulkanBookUtil.h"
-#include "TeapotModel.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+#include "TeapotPatch.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -301,27 +302,24 @@ bool TessellateTeapotApp::OnSizeChanged(uint32_t width, uint32_t height)
 
 void TessellateTeapotApp::PrepareTessTeapot()
 {
+	const std::vector<glm::vec3>& teapotPoints = TeapotPatch::GetTeapotPatchPoints();
+	const std::vector<unsigned int>& teapotIndices = TeapotPatch::GetTeapotPatchIndices();
+
 	// ティーポットのモデルをロード
-	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
-	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
-	m_tessTeapot = CreateSimpleModel(vertices, indices);
+	m_tessTeapot = CreateSimpleModel(teapotPoints, teapotIndices);
 
 	// 頂点の入力の設定
-	uint32_t stride = uint32_t(sizeof(TeapotModel::Vertex));
+	uint32_t stride = uint32_t(sizeof(TeapotPatch::ControlPoint));
 	VkVertexInputBindingDescription vibDesc{};
 	vibDesc.binding = 0;
 	vibDesc.stride = stride;
 	vibDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	std::array<VkVertexInputAttributeDescription, 2> inputAttribs{};
+	std::array<VkVertexInputAttributeDescription, 1> inputAttribs{};
 	inputAttribs[0].location = 0;
 	inputAttribs[0].binding = 0;
 	inputAttribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	inputAttribs[0].offset = offsetof(TeapotModel::Vertex, Position);
-	inputAttribs[1].location = 1;
-	inputAttribs[1].binding = 0;
-	inputAttribs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-	inputAttribs[1].offset = offsetof(TeapotModel::Vertex, Normal);
+	inputAttribs[0].offset = offsetof(TeapotPatch::ControlPoint, Position);
 
 	VkPipelineVertexInputStateCreateInfo pipelineVisCI{};
 	pipelineVisCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -351,8 +349,14 @@ void TessellateTeapotApp::PrepareTessTeapot()
 	inputAssemblyCI.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssemblyCI.pNext = nullptr;
 	inputAssemblyCI.flags = 0;
-	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
 	inputAssemblyCI.primitiveRestartEnable = VK_FALSE;
+
+	VkPipelineTessellationStateCreateInfo tessStateCI{};
+	tessStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+	tessStateCI.pNext = nullptr;
+	tessStateCI.flags = 0;
+	tessStateCI.patchControlPoints = 16;
 
 	VkPipelineMultisampleStateCreateInfo multisampleCI{};
 	multisampleCI.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -401,6 +405,8 @@ void TessellateTeapotApp::PrepareTessTeapot()
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
 		book_util::LoadShader(m_device, "tessTeapotVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+		book_util::LoadShader(m_device, "tessTeapotTCS.spv", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT),
+		book_util::LoadShader(m_device, "tessTeapotTES.spv", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT),
 		book_util::LoadShader(m_device, "tessTeapotFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 
@@ -413,7 +419,7 @@ void TessellateTeapotApp::PrepareTessTeapot()
 	pipelineCI.pStages = shaderStages.data();
 	pipelineCI.pVertexInputState = &pipelineVisCI;
 	pipelineCI.pInputAssemblyState = &inputAssemblyCI;
-	pipelineCI.pTessellationState = nullptr;
+	pipelineCI.pTessellationState = &tessStateCI;
 	pipelineCI.pViewportState = &viewportStateCI;
 	pipelineCI.pRasterizationState = &rasterizerState;
 	pipelineCI.pMultisampleState = &multisampleCI;
