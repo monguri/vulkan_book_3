@@ -147,7 +147,7 @@ void TessellateTeapotApp::Render()
 
 	std::array<VkClearValue, 2> clearValue = {
 		{
-			{0.85f, 0.5f, 0.5f, 0.0f}, // for Color
+			{0.25f, 0.25f, 0.25f, 0.0f}, // for Color
 			{1.0f, 0}, // for Depth
 		}
 	};
