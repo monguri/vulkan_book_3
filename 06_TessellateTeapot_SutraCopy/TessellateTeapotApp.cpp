@@ -42,11 +42,6 @@ void TessellateTeapotApp::Prepare()
 	}
 
 	PrepareTessTeapot();
-
-	// ティーポットのモデルをロード
-	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
-	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
-	m_tessTeapot = CreateSimpleModel(vertices, indices);
 }
 
 void TessellateTeapotApp::Cleanup()
@@ -306,6 +301,11 @@ bool TessellateTeapotApp::OnSizeChanged(uint32_t width, uint32_t height)
 
 void TessellateTeapotApp::PrepareTessTeapot()
 {
+	// ティーポットのモデルをロード
+	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
+	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
+	m_tessTeapot = CreateSimpleModel(vertices, indices);
+
 	// 頂点の入力の設定
 	uint32_t stride = uint32_t(sizeof(TeapotModel::Vertex));
 	VkVertexInputBindingDescription vibDesc{};
