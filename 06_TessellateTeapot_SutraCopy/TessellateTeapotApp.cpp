@@ -462,25 +462,19 @@ void TessellateTeapotApp::PrepareTessTeapot()
 void TessellateTeapotApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
-	std::array<VkDescriptorSetLayoutBinding, 2> descSetLayoutBindings;
+	VkDescriptorSetLayoutBinding descSetLayoutBinding;
 
-	// 0: uniformBuffer, 1: texture(+sampler) を使用するシェーダ用レイアウト
-	descSetLayoutBindings[0].binding = 0;
-	descSetLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descSetLayoutBindings[0].descriptorCount = 1;
-	descSetLayoutBindings[0].stageFlags = VK_SHADER_STAGE_ALL;
-	descSetLayoutBindings[0].pImmutableSamplers = nullptr;
-	descSetLayoutBindings[1].binding = 1;
-	descSetLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	descSetLayoutBindings[1].descriptorCount = 1;
-	descSetLayoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	descSetLayoutBindings[1].pImmutableSamplers = nullptr;
+	descSetLayoutBinding.binding = 0;
+	descSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descSetLayoutBinding.descriptorCount = 1;
+	descSetLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
+	descSetLayoutBinding.pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
 	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	descSetLayoutCI.pNext = nullptr;
-	descSetLayoutCI.bindingCount = uint32_t(descSetLayoutBindings.size());
-	descSetLayoutCI.pBindings = descSetLayoutBindings.data();
+	descSetLayoutCI.bindingCount = 1;
+	descSetLayoutCI.pBindings = &descSetLayoutBinding;
 
 	VkDescriptorSetLayout dsLayout = VK_NULL_HANDLE;
 
