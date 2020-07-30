@@ -109,12 +109,11 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="Shader\cubemapFS.frag" />
-    <CustomBuild Include="Shader\cubemapGS.geom" />
-    <CustomBuild Include="Shader\cubemapVS.vert" />
-    <CustomBuild Include="Shader\teapotFS.frag" />
-    <CustomBuild Include="Shader\teapotVS.vert" />
-    <CustomBuild Include="Shader\tessTeapotFS.frag" />
-    <CustomBuild Include="Shader\tessTeapotVS.vert" />
+    <CustomBuild Include="Shader\tessTeapotFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\tessTeapotVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>
