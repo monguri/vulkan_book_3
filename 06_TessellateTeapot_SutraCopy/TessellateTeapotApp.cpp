@@ -386,7 +386,11 @@ void TessellateTeapotApp::PrepareTessTeapot()
 	viewportStateCI.scissorCount = 1;
 	viewportStateCI.pScissors = &scissor;
 
-	const VkPipelineRasterizationStateCreateInfo& rasterizerState = book_util::GetDefaultRasterizerState();
+	VkPipelineRasterizationStateCreateInfo rasterizerState = book_util::GetDefaultRasterizerState();
+#if 0
+	// ワイアーフレーム表示
+	rasterizerState.polygonMode = VK_POLYGON_MODE_LINE;
+#endif
 
 	const VkPipelineDepthStencilStateCreateInfo& dsState = book_util::GetDefaultDepthStencilState();
 
