@@ -127,5 +127,6 @@
     <None Include="Shader\tessTeapotVS.vert">
       <Filter>Shader</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
