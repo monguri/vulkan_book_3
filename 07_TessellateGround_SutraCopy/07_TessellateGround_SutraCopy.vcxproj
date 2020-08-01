@@ -158,7 +158,7 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="TeapotPatch.cpp" />
-    <ClCompile Include="TessellateTeapotApp.cpp" />
+    <ClCompile Include="TessellateGroundApp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\commonSutraCopy\stb_image.h" />
@@ -176,7 +176,7 @@
     <ClInclude Include="..\common\imgui\imstb_truetype.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="TeapotPatch.h" />
-    <ClInclude Include="TessellateTeapotApp.h" />
+    <ClInclude Include="TessellateGroundApp.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shader\tessTeapotFS.frag">

@@ -1,4 +1,4 @@
-#include "TessellateTeapotApp.h"
+#include "TessellateGroundApp.h"
 #include "VulkanBookUtil.h"
 
 const int WindowWidth = 800, WindowHeight = 600;

@@ -1,4 +1,4 @@
-#include "TessellateTeapotApp.h"
+#include "TessellateGroundApp.h"
 #include "VulkanBookUtil.h"
 
 #define STB_IMAGE_IMPLEMENTATION
