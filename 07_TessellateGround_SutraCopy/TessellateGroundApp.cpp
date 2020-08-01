@@ -4,8 +4,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include "TeapotPatch.h"
-
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "imgui.h"
@@ -17,7 +15,7 @@
 TessellateGroundApp::TessellateGroundApp()
 {
 	m_camera.SetLookAt(
-		glm::vec3(0.0f, 2.0f, 10.0f),
+		glm::vec3(48.5f, 25.0f, 65.0f),
 		glm::vec3(0.0f, 0.0f, 0.0f)
 	);
 }
@@ -48,8 +46,8 @@ void TessellateGroundApp::Prepare()
 
 void TessellateGroundApp::Cleanup()
 {
-	DestroyBuffer(m_tessTeapot.resVertexBuffer);
-	DestroyBuffer(m_tessTeapot.resIndexBuffer);
+	DestroyBuffer(m_quad.resVertexBuffer);
+	DestroyBuffer(m_quad.resIndexBuffer);
 	vkDestroySampler(m_device, m_texSampler, nullptr);
 
 	DestroyImage(m_normalMap);
@@ -57,21 +55,21 @@ void TessellateGroundApp::Cleanup()
 
 	// CenterTeapot
 	{
-		vkDestroyPipeline(m_device, m_tessTeapotPipeline, nullptr);
-		vkDestroyPipeline(m_device, m_tessTeapotWired, nullptr);
+		vkDestroyPipeline(m_device, m_tessGroundPipeline, nullptr);
+		vkDestroyPipeline(m_device, m_tessGroundWired, nullptr);
 
-		for (const BufferObject& ubo : m_tessTeapotUniform)
+		for (const BufferObject& ubo : m_tessUniform)
 		{
 			DestroyBuffer(ubo);
 		}
-		m_tessTeapotUniform.clear();
+		m_tessUniform.clear();
 
-		for (const VkDescriptorSet& ds : m_dsTeapot)
+		for (const VkDescriptorSet& ds : m_dsTessSample)
 		{
 			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
 			DeallocateDescriptorset(ds);
 		}
-		m_dsTeapot.clear();
+		m_dsTessSample.clear();
 	}
 
 	DestroyImage(m_depthBuffer);
@@ -149,7 +147,7 @@ void TessellateGroundApp::Render()
 		tessParams.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
 		tessParams.tessOuterLevel = m_tessFactor;
 		tessParams.tessInnerLevel = m_tessFactor;
-		WriteToHostVisibleMemory(m_tessTeapotUniform[m_imageIndex].memory, sizeof(tessParams), &tessParams);
+		WriteToHostVisibleMemory(m_tessUniform[m_imageIndex].memory, sizeof(tessParams), &tessParams);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -235,21 +233,21 @@ void TessellateGroundApp::RenderToMain(const VkCommandBuffer& command)
 	// 中央ティーポットの描画
 	if (m_isWireframe)
 	{
-		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessTeapotWired);
+		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessGroundWired);
 	}
 	else
 	{
-		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessTeapotPipeline);
+		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessGroundPipeline);
 	}
 
-	VkDescriptorSet ds = m_dsTeapot[m_imageIndex];
+	VkDescriptorSet ds = m_dsTessSample[m_imageIndex];
 
-	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1");
+	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1t2");
 	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
-	vkCmdBindIndexBuffer(command, m_tessTeapot.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindIndexBuffer(command, m_quad.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command, 0, 1, &m_tessTeapot.resVertexBuffer.buffer, offsets);
-	vkCmdDrawIndexed(command, m_tessTeapot.indexCount, 1, 0, 0, 0);
+	vkCmdBindVertexBuffers(command, 0, 1, &m_quad.resVertexBuffer.buffer, offsets);
+	vkCmdDrawIndexed(command, m_quad.indexCount, 1, 0, 0, 0);
 }
 
 void TessellateGroundApp::RenderHUD(const VkCommandBuffer& command)
@@ -495,24 +493,132 @@ VulkanAppBase::ImageObject TessellateGroundApp::Load2DTextureFromFile(const char
 
 void TessellateGroundApp::PreparePrimitiveResource()
 {
-	const std::vector<glm::vec3>& teapotPoints = TeapotPatch::GetTeapotPatchPoints();
-	const std::vector<unsigned int>& teapotIndices = TeapotPatch::GetTeapotPatchIndices();
+	using namespace glm;
+	using VertexData = std::vector<Vertex>;
+	using IndexData = std::vector<uint32_t>;
+	const float edge = 200.0f;
+	const int divide = 10;
 
-	// ティーポットのモデルをロード
-	m_tessTeapot = CreateSimpleModel(teapotPoints, teapotIndices);
+	VertexData vertices;
+	for (int z = 0; z < divide + 1; ++z)
+	{
+		for (int x = 0; x < divide + 1; ++x)
+		{
+			Vertex v;
+			v.Position = vec3(
+				edge * x / divide,
+				0.0f,
+				edge * z / divide
+			);
+			v.UV = vec2(
+				v.Position.x / edge,
+				v.Position.y / edge
+			);
+
+			vertices.push_back(v);
+		}
+	}
+
+	// インデックスはこのようなつけ方
+	// 0     1     2
+	// |------------//
+	// |    /|    /|
+	// |   / |   / |
+	// |  /  |  /  |
+	// | /   | /   |
+	// |/    |/    |
+	// |------------//
+	// 11    12    13
+	//
+	IndexData indices;
+	for (int z = 0; z < divide; ++z)
+	{
+		for (int x = 0; x < divide; ++x)
+		{
+			const int rows = divide + 1;
+			int v0 = x, v1 = x + 1;
+			v0 = v0 + rows * z;
+			v1 = v1 + rows * z;
+#if 0 // TODO:まずはTringleListで
+			indices.push_back(v0);
+			indices.push_back(v1);
+			indices.push_back(v0 + rows);
+			indices.push_back(v1 + rows);
+#else
+			indices.push_back(v0);
+			indices.push_back(v1);
+			indices.push_back(v0 + rows);
+
+			indices.push_back(v1 + rows);
+			indices.push_back(v0 + rows);
+			indices.push_back(v1);
+#endif
+		}
+	}
+
+	// 中心補正
+	for (Vertex& v : vertices)
+	{
+		v.Position.x -= edge * 0.5f;
+		v.Position.y -= edge * 0.5f;
+	}
+
+	m_quad = CreateSimpleModel(vertices, indices);
+
+	// ディスクリプタセットの作成
+	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1t2");
+	uint32_t imageCount = m_swapchain->GetImageCount();
+
+	uint32_t bufferSize = uint32_t(sizeof(TessellationShaderParameters));
+	m_tessUniform = CreateUniformBuffers(bufferSize, imageCount);
+
+	m_dsTessSample.resize(imageCount);
+	for (uint32_t i = 0; i < imageCount; ++i)
+	{
+		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
+		m_dsTessSample[i] = ds;
+
+		VkDescriptorBufferInfo bufferInfo{};
+		bufferInfo.buffer = m_tessUniform[i].buffer;
+		bufferInfo.offset = 0;
+		bufferInfo.range = VK_WHOLE_SIZE;
+
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.sampler = m_texSampler;
+		imageInfo.imageView = m_heightMap.view;
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkDescriptorImageInfo imageInfo2{};
+		imageInfo2.sampler = m_texSampler;
+		imageInfo2.imageView = m_normalMap.view;
+		imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		std::vector<VkWriteDescriptorSet> writeDS =
+		{
+			book_util::CreateWriteDescriptorSet(ds, 0, &bufferInfo),
+			book_util::CreateWriteDescriptorSet(ds, 1, &imageInfo),
+			book_util::CreateWriteDescriptorSet(ds, 2, &imageInfo2)
+		};
+
+		vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
+	}
 
 	// 頂点の入力の設定
-	uint32_t stride = uint32_t(sizeof(TeapotPatch::ControlPoint));
+	uint32_t stride = uint32_t(sizeof(Vertex));
 	VkVertexInputBindingDescription vibDesc{};
 	vibDesc.binding = 0;
 	vibDesc.stride = stride;
 	vibDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	std::array<VkVertexInputAttributeDescription, 1> inputAttribs{};
+	std::array<VkVertexInputAttributeDescription, 2> inputAttribs{};
 	inputAttribs[0].location = 0;
 	inputAttribs[0].binding = 0;
 	inputAttribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	inputAttribs[0].offset = offsetof(TeapotPatch::ControlPoint, Position);
+	inputAttribs[0].offset = offsetof(Vertex, Position);
+	inputAttribs[1].location = 1;
+	inputAttribs[1].binding = 0;
+	inputAttribs[1].format = VK_FORMAT_R32G32_SFLOAT;
+	inputAttribs[1].offset = offsetof(Vertex, UV);
 
 	VkPipelineVertexInputStateCreateInfo pipelineVisCI{};
 	pipelineVisCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -542,14 +648,20 @@ void TessellateGroundApp::PreparePrimitiveResource()
 	inputAssemblyCI.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssemblyCI.pNext = nullptr;
 	inputAssemblyCI.flags = 0;
+#if 0 // TODO:まずはTringleListで
 	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+#else
+	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+#endif
 	inputAssemblyCI.primitiveRestartEnable = VK_FALSE;
 
+#if 0 // TODO:まずはTringleListで
 	VkPipelineTessellationStateCreateInfo tessStateCI{};
 	tessStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
 	tessStateCI.pNext = nullptr;
 	tessStateCI.flags = 0;
-	tessStateCI.patchControlPoints = 16;
+	tessStateCI.patchControlPoints = 4;
+#endif
 
 	VkPipelineMultisampleStateCreateInfo multisampleCI{};
 	multisampleCI.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -579,7 +691,7 @@ void TessellateGroundApp::PreparePrimitiveResource()
 	viewportStateCI.scissorCount = 1;
 	viewportStateCI.pScissors = &scissor;
 
-	VkPipelineRasterizationStateCreateInfo rasterizerState = book_util::GetDefaultRasterizerState();
+	VkPipelineRasterizationStateCreateInfo rasterizerState = book_util::GetDefaultRasterizerState(VK_CULL_MODE_BACK_BIT); // バックフェイスカリングする
 
 	const VkPipelineDepthStencilStateCreateInfo& dsState = book_util::GetDefaultDepthStencilState();
 
@@ -598,8 +710,10 @@ void TessellateGroundApp::PreparePrimitiveResource()
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
 		book_util::LoadShader(m_device, "tessTeapotVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+#if 0 // TODO:まずはTringleListで
 		book_util::LoadShader(m_device, "tessTeapotTCS.spv", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT),
 		book_util::LoadShader(m_device, "tessTeapotTES.spv", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT),
+#endif
 		book_util::LoadShader(m_device, "tessTeapotFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 
@@ -612,54 +726,30 @@ void TessellateGroundApp::PreparePrimitiveResource()
 	pipelineCI.pStages = shaderStages.data();
 	pipelineCI.pVertexInputState = &pipelineVisCI;
 	pipelineCI.pInputAssemblyState = &inputAssemblyCI;
+#if 0 // TODO:まずはTringleListで
 	pipelineCI.pTessellationState = &tessStateCI;
+#else
+	pipelineCI.pTessellationState = nullptr;
+#endif
 	pipelineCI.pViewportState = &viewportStateCI;
 	pipelineCI.pRasterizationState = &rasterizerState;
 	pipelineCI.pMultisampleState = &multisampleCI;
 	pipelineCI.pDepthStencilState = &dsState;
 	pipelineCI.pColorBlendState = &colorBlendStateCI;
 	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
-	pipelineCI.layout = GetPipelineLayout("u1");
+	pipelineCI.layout = GetPipelineLayout("u1t2");
 	pipelineCI.renderPass = GetRenderPass("default");
 	pipelineCI.subpass = 0;
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCI.basePipelineIndex = 0;
 
-	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessTeapotPipeline);
+	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessGroundPipeline);
 	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
 
-	// ワイアーフレーム表示
+	// ワイアーフレーム描画用も作成
 	rasterizerState.polygonMode = VK_POLYGON_MODE_LINE;
-	result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessTeapotWired);
+	result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessGroundWired);
 	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
-
-	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
-	uint32_t imageCount = m_swapchain->GetImageCount();
-
-	uint32_t bufferSize = uint32_t(sizeof(TessellationShaderParameters));
-	m_tessTeapotUniform = CreateUniformBuffers(bufferSize, imageCount);
-
-	// ファイルから読み込んだキューブマップを使用して描画するパスのディスクリプタを準備
-	m_dsTeapot.resize(imageCount);
-	for (uint32_t i = 0; i < imageCount; ++i)
-	{
-		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
-		m_dsTeapot[i] = ds;
-
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = m_tessTeapotUniform[i].buffer;
-		bufferInfo.offset = 0;
-		bufferInfo.range = VK_WHOLE_SIZE;
-
-		VkWriteDescriptorSet writeSet = book_util::CreateWriteDescriptorSet(
-			ds,
-			0,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-			&bufferInfo
-		);
-
-		vkUpdateDescriptorSets(m_device, 1, &writeSet, 0, nullptr);
-	}
 
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
@@ -667,28 +757,37 @@ void TessellateGroundApp::PreparePrimitiveResource()
 void TessellateGroundApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
-	VkDescriptorSetLayoutBinding descSetLayoutBinding;
-
-	descSetLayoutBinding.binding = 0;
-	descSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descSetLayoutBinding.descriptorCount = 1;
-	descSetLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;
-	descSetLayoutBinding.pImmutableSamplers = nullptr;
+	std::array<VkDescriptorSetLayoutBinding, 3> dsLayoutBindings;
+	dsLayoutBindings[0].binding = 0;
+	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	dsLayoutBindings[0].descriptorCount = 1;
+	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_ALL;
+	dsLayoutBindings[0].pImmutableSamplers = nullptr;
+	dsLayoutBindings[1].binding = 1;
+	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	dsLayoutBindings[1].descriptorCount = 1;
+	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_ALL;
+	dsLayoutBindings[1].pImmutableSamplers = nullptr;
+	dsLayoutBindings[2].binding = 2;
+	dsLayoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	dsLayoutBindings[2].descriptorCount = 1;
+	dsLayoutBindings[2].stageFlags = VK_SHADER_STAGE_ALL;
+	dsLayoutBindings[2].pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
 	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	descSetLayoutCI.pNext = nullptr;
-	descSetLayoutCI.bindingCount = 1;
-	descSetLayoutCI.pBindings = &descSetLayoutBinding;
+	descSetLayoutCI.bindingCount = uint32_t(dsLayoutBindings.size());
+	descSetLayoutCI.pBindings = dsLayoutBindings.data();
 
 	VkDescriptorSetLayout dsLayout = VK_NULL_HANDLE;
 
 	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
 	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
-	RegisterLayout("u1", dsLayout);
+	RegisterLayout("u1t2", dsLayout);
 
 	// パイプラインレイアウト
-	dsLayout = GetDescriptorSetLayout("u1");
+	dsLayout = GetDescriptorSetLayout("u1t2");
 	VkPipelineLayoutCreateInfo layoutCI{};
 	layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layoutCI.pNext = nullptr;
@@ -701,6 +800,6 @@ void TessellateGroundApp::CreateSampleLayouts()
 	VkPipelineLayout layout = VK_NULL_HANDLE;
 	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
 	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
-	RegisterLayout("u1", layout);
+	RegisterLayout("u1t2", layout);
 }
 

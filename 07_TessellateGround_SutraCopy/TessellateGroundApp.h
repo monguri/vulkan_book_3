@@ -18,6 +18,12 @@ public:
 	virtual bool OnMouseMove(int dx, int dy) override;
 
 private:
+	struct Vertex
+	{
+		glm::vec3 Position;
+		glm::vec2 UV;
+	};
+
 	ImageObject m_depthBuffer;
 	std::vector<VkFramebuffer> m_framebuffers;
 
@@ -45,11 +51,11 @@ private:
 		float tessInnerLevel = 1.0f;
 	};
 
-	std::vector<BufferObject> m_tessTeapotUniform;
-	std::vector<VkDescriptorSet> m_dsTeapot;
-	VkPipeline m_tessTeapotPipeline = VK_NULL_HANDLE;
-	VkPipeline m_tessTeapotWired = VK_NULL_HANDLE;
-	ModelData m_tessTeapot;
+	std::vector<BufferObject> m_tessUniform;
+	std::vector<VkDescriptorSet> m_dsTessSample;
+	VkPipeline m_tessGroundPipeline = VK_NULL_HANDLE;
+	VkPipeline m_tessGroundWired = VK_NULL_HANDLE;
+	ModelData m_quad;
 	ImageObject m_heightMap;
 	ImageObject m_normalMap;
 

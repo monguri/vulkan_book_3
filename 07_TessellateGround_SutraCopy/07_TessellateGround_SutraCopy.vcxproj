@@ -157,13 +157,11 @@
     <ClCompile Include="..\common\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="TeapotPatch.cpp" />
     <ClCompile Include="TessellateGroundApp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\commonSutraCopy\stb_image.h" />
     <ClInclude Include="..\commonSutraCopy\Swapchain.h" />
-    <ClInclude Include="..\commonSutraCopy\TeapotModel.h" />
     <ClInclude Include="..\commonSutraCopy\VulkanAppBase.h" />
     <ClInclude Include="..\commonSutraCopy\VulkanBookUtil.h" />
     <ClInclude Include="..\common\imgui\examples\imgui_impl_glfw.h" />
@@ -175,7 +173,6 @@
     <ClInclude Include="..\common\imgui\imstb_textedit.h" />
     <ClInclude Include="..\common\imgui\imstb_truetype.h" />
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="TeapotPatch.h" />
     <ClInclude Include="TessellateGroundApp.h" />
   </ItemGroup>
   <ItemGroup>
@@ -216,7 +213,6 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S vert %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
     </CustomBuild>
     <None Include="packages.config" />
-    <None Include="TeapotPatch2.inc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
