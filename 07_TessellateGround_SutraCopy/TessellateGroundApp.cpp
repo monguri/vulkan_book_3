@@ -43,7 +43,7 @@ void TessellateGroundApp::Prepare()
 	}
 
 	PrepareSceneResource();
-	PrepareTessTeapot();
+	PreparePrimitiveResource();
 }
 
 void TessellateGroundApp::Cleanup()
@@ -493,7 +493,7 @@ VulkanAppBase::ImageObject TessellateGroundApp::Load2DTextureFromFile(const char
 	return texture;
 }
 
-void TessellateGroundApp::PrepareTessTeapot()
+void TessellateGroundApp::PreparePrimitiveResource()
 {
 	const std::vector<glm::vec3>& teapotPoints = TeapotPatch::GetTeapotPatchPoints();
 	const std::vector<unsigned int>& teapotIndices = TeapotPatch::GetTeapotPatchIndices();

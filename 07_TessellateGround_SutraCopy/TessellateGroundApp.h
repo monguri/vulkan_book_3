@@ -61,7 +61,7 @@ private:
 	void PrepareFramebuffers();
 	void PrepareSceneResource();
 	ImageObject Load2DTextureFromFile(const char* fileName);
-	void PrepareTessTeapot();
+	void PreparePrimitiveResource();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
 };
