@@ -47,9 +47,11 @@ private:
 	std::vector<BufferObject> m_tessTeapotUniform;
 	std::vector<VkDescriptorSet> m_dsTeapot;
 	VkPipeline m_tessTeapotPipeline = VK_NULL_HANDLE;
+	VkPipeline m_tessTeapotWired = VK_NULL_HANDLE;
 	ModelData m_tessTeapot;
 
 	float m_tessFactor = 1.0f;
+	bool m_isWireframe = false;
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();

@@ -53,6 +53,7 @@ void TessellateTeapotApp::Cleanup()
 	// CenterTeapot
 	{
 		vkDestroyPipeline(m_device, m_tessTeapotPipeline, nullptr);
+		vkDestroyPipeline(m_device, m_tessTeapotWired, nullptr);
 
 		for (const BufferObject& ubo : m_tessTeapotUniform)
 		{
@@ -227,7 +228,14 @@ void TessellateTeapotApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
 	// 中央ティーポットの描画
-	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessTeapotPipeline);
+	if (m_isWireframe)
+	{
+		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessTeapotWired);
+	}
+	else
+	{
+		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessTeapotPipeline);
+	}
 
 	VkDescriptorSet ds = m_dsTeapot[m_imageIndex];
 
@@ -249,6 +257,7 @@ void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
 	ImGui::SliderFloat("TessFactor", &m_tessFactor, 1.0f, 32.0f, "%.1f");
+	ImGui::Checkbox("WireFrame", &m_isWireframe);
 	ImGui::End();
 
 	ImGui::Render();
@@ -387,10 +396,6 @@ void TessellateTeapotApp::PrepareTessTeapot()
 	viewportStateCI.pScissors = &scissor;
 
 	VkPipelineRasterizationStateCreateInfo rasterizerState = book_util::GetDefaultRasterizerState();
-#if 0
-	// ワイアーフレーム表示
-	rasterizerState.polygonMode = VK_POLYGON_MODE_LINE;
-#endif
 
 	const VkPipelineDepthStencilStateCreateInfo& dsState = book_util::GetDefaultDepthStencilState();
 
@@ -438,6 +443,12 @@ void TessellateTeapotApp::PrepareTessTeapot()
 
 	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessTeapotPipeline);
 	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
+
+	// ワイアーフレーム表示
+	rasterizerState.polygonMode = VK_POLYGON_MODE_LINE;
+	result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessTeapotWired);
+	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
+
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
 	uint32_t imageCount = m_swapchain->GetImageCount();
 
