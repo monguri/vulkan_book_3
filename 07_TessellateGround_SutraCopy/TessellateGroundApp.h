@@ -32,6 +32,7 @@ private:
 	uint32_t m_imageIndex = 0;
 
 	Camera m_camera;
+	VkSampler m_texSampler = VK_NULL_HANDLE;
 
 	struct TessellationShaderParameters
 	{
@@ -49,6 +50,8 @@ private:
 	VkPipeline m_tessTeapotPipeline = VK_NULL_HANDLE;
 	VkPipeline m_tessTeapotWired = VK_NULL_HANDLE;
 	ModelData m_tessTeapot;
+	ImageObject m_heightMap;
+	ImageObject m_normalMap;
 
 	float m_tessFactor = 1.0f;
 	bool m_isWireframe = false;
@@ -56,6 +59,8 @@ private:
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
+	void PrepareSceneResource();
+	ImageObject Load2DTextureFromFile(const char* fileName);
 	void PrepareTessTeapot();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);

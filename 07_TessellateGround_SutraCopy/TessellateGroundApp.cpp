@@ -42,6 +42,7 @@ void TessellateGroundApp::Prepare()
 		c.commandBuffer = CreateCommandBuffer(false); // コマンドバッファは開始状態にしない
 	}
 
+	PrepareSceneResource();
 	PrepareTessTeapot();
 }
 
@@ -49,6 +50,10 @@ void TessellateGroundApp::Cleanup()
 {
 	DestroyBuffer(m_tessTeapot.resVertexBuffer);
 	DestroyBuffer(m_tessTeapot.resIndexBuffer);
+	vkDestroySampler(m_device, m_texSampler, nullptr);
+
+	DestroyImage(m_normalMap);
+	DestroyImage(m_heightMap);
 
 	// CenterTeapot
 	{
@@ -307,6 +312,185 @@ bool TessellateGroundApp::OnSizeChanged(uint32_t width, uint32_t height)
 	}
 
 	return isResized;
+}
+
+void TessellateGroundApp::PrepareSceneResource()
+{
+	// サンプラーの準備。これは2Dテクスチャのときと何も変わらない
+	VkSamplerCreateInfo samplerCI{};
+	samplerCI.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCI.pNext = nullptr;
+	samplerCI.flags = 0;
+	samplerCI.magFilter = VK_FILTER_LINEAR;
+	samplerCI.minFilter = VK_FILTER_LINEAR;
+	samplerCI.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCI.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCI.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCI.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCI.mipLodBias = 0.0f;
+	samplerCI.anisotropyEnable = VK_FALSE;
+	samplerCI.maxAnisotropy = 1.0f;
+	samplerCI.compareEnable = VK_FALSE;
+	samplerCI.compareOp = VK_COMPARE_OP_NEVER;
+	samplerCI.minLod = 0.0f;
+	samplerCI.maxLod = 1.0f;
+	samplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	samplerCI.unnormalizedCoordinates = VK_FALSE;
+	VkResult result = vkCreateSampler(m_device, &samplerCI, nullptr, &m_texSampler);
+	ThrowIfFailed(result, "vkCreateSampler Failed.");
+
+	m_heightMap = Load2DTextureFromFile("heightmap.png");
+	m_normalMap = Load2DTextureFromFile("normalmap.png");
+}
+
+VulkanAppBase::ImageObject TessellateGroundApp::Load2DTextureFromFile(const char* fileName)
+{
+	int width, height = 0;
+	stbi_uc* rawimage = { nullptr };
+	rawimage  = stbi_load(fileName, &width, &height, nullptr, 4);
+
+	VkImageCreateInfo imageCI{};
+	imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCI.pNext = nullptr;
+	imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Cubemapとして扱うため
+	imageCI.imageType = VK_IMAGE_TYPE_2D;
+	imageCI.format = VK_FORMAT_R8G8B8A8_UNORM;
+	imageCI.extent.width = width;
+	imageCI.extent.height = height;
+	imageCI.extent.depth = 1;
+	imageCI.mipLevels = 1;
+	imageCI.arrayLayers = 1;
+	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageCI.queueFamilyIndexCount = 0;
+	imageCI.pQueueFamilyIndices = nullptr;
+	imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	VkImage image = VK_NULL_HANDLE;
+	VkResult result = vkCreateImage(m_device, &imageCI, nullptr, &image);
+	ThrowIfFailed(result, "vkCreateImage Failed.");
+
+	VkMemoryRequirements reqs;
+	vkGetImageMemoryRequirements(m_device, image, &reqs);
+
+	VkMemoryAllocateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	info.pNext = nullptr;
+	info.allocationSize = reqs.size;
+	info.memoryTypeIndex = GetMemoryTypeIndex(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	VkDeviceMemory memory = VK_NULL_HANDLE;
+	result = vkAllocateMemory(m_device, &info, nullptr, &memory);
+	ThrowIfFailed(result, "vkAllocateMemory Failed.");
+	result = vkBindImageMemory(m_device, image, memory, 0);
+	ThrowIfFailed(result, "vkBindImageMemory Failed.");
+
+	VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
+
+	VkImageViewCreateInfo viewCI{};
+	viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCI.pNext = nullptr;
+	viewCI.flags = 0;
+	viewCI.image = image;
+	viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewCI.format = imageCI.format;
+	viewCI.components = book_util::DefaultComponentMapping();
+	viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewCI.subresourceRange.baseMipLevel = 0;
+	viewCI.subresourceRange.levelCount = 1;
+	viewCI.subresourceRange.baseArrayLayer = 0;
+	viewCI.subresourceRange.layerCount = 1;
+
+	VkImageView view = VK_NULL_HANDLE;
+	result = vkCreateImageView(m_device, &viewCI, nullptr, &view);
+	ThrowIfFailed(result, "vkCreateImageView Failed.");
+
+	// ステージング用準備
+	uint32_t bufferSize = uint32_t(width * height * sizeof(uint32_t));
+	BufferObject bufferSrc;
+	bufferSrc = CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	WriteToHostVisibleMemory(bufferSrc.memory, bufferSize, rawimage);
+
+	const VkCommandBuffer& command = CreateCommandBuffer();
+
+	VkImageMemoryBarrier imb{};
+	imb.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imb.pNext = nullptr;
+	imb.srcAccessMask = 0;
+	imb.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imb.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	imb.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imb.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imb.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imb.image = image;
+	imb.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imb.subresourceRange.baseMipLevel = 0;
+	imb.subresourceRange.levelCount = 1;
+	imb.subresourceRange.baseArrayLayer = 0;
+	imb.subresourceRange.layerCount = 1;
+
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		0, // bufferMemoryBarrierCount
+		nullptr,
+		1, // imageMemoryBarrierCount
+		&imb
+	);
+
+	VkBufferImageCopy region{};
+	region.imageExtent.width = uint32_t(width);
+	region.imageExtent.height = uint32_t(height);
+	region.imageExtent.depth = 1;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+
+	vkCmdCopyBufferToImage(
+		command,
+		bufferSrc.buffer,
+		image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&region
+	);
+
+	imb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	imb.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	imb.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		0, // bufferMemoryBarrierCount
+		nullptr,
+		1, // imageMemoryBarrierCount
+		&imb
+	);
+
+	FinishCommandBuffer(command);
+	DestroyCommandBuffer(command);
+
+	stbi_image_free(rawimage);
+	DestroyBuffer(bufferSrc);
+
+	ImageObject texture;
+	texture.image = image;
+	texture.memory = memory;
+	texture.view = view;
+	return texture;
 }
 
 void TessellateGroundApp::PrepareTessTeapot()
