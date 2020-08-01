@@ -14,7 +14,7 @@
 
 #include <array>
 
-TessellateTeapotApp::TessellateTeapotApp()
+TessellateGroundApp::TessellateGroundApp()
 {
 	m_camera.SetLookAt(
 		glm::vec3(0.0f, 2.0f, 10.0f),
@@ -22,7 +22,7 @@ TessellateTeapotApp::TessellateTeapotApp()
 	);
 }
 
-void TessellateTeapotApp::Prepare()
+void TessellateGroundApp::Prepare()
 {
 	CreateSampleLayouts();
 
@@ -45,7 +45,7 @@ void TessellateTeapotApp::Prepare()
 	PrepareTessTeapot();
 }
 
-void TessellateTeapotApp::Cleanup()
+void TessellateGroundApp::Cleanup()
 {
 	DestroyBuffer(m_tessTeapot.resVertexBuffer);
 	DestroyBuffer(m_tessTeapot.resIndexBuffer);
@@ -81,7 +81,7 @@ void TessellateTeapotApp::Cleanup()
 	m_commandBuffers.clear();
 }
 
-bool TessellateTeapotApp::OnMouseButtonDown(int button)
+bool TessellateGroundApp::OnMouseButtonDown(int button)
 {
 	if (VulkanAppBase::OnMouseButtonDown(button))
 	{
@@ -92,7 +92,7 @@ bool TessellateTeapotApp::OnMouseButtonDown(int button)
 	return true;
 }
 
-bool TessellateTeapotApp::OnMouseButtonUp(int button)
+bool TessellateGroundApp::OnMouseButtonUp(int button)
 {
 	if (VulkanAppBase::OnMouseButtonUp(button))
 	{
@@ -103,7 +103,7 @@ bool TessellateTeapotApp::OnMouseButtonUp(int button)
 	return true;
 }
 
-bool TessellateTeapotApp::OnMouseMove(int dx, int dy)
+bool TessellateGroundApp::OnMouseMove(int dx, int dy)
 {
 	if (VulkanAppBase::OnMouseMove(dx, dy))
 	{
@@ -114,7 +114,7 @@ bool TessellateTeapotApp::OnMouseMove(int dx, int dy)
 	return true;
 }
 
-void TessellateTeapotApp::Render()
+void TessellateGroundApp::Render()
 {
 	if (m_isMinimizedWindow)
 	{
@@ -211,7 +211,7 @@ void TessellateTeapotApp::Render()
 	m_swapchain->QueuePresent(m_deviceQueue, m_imageIndex, m_renderCompletedSem);
 }
 
-void TessellateTeapotApp::RenderToMain(const VkCommandBuffer& command)
+void TessellateGroundApp::RenderToMain(const VkCommandBuffer& command)
 {
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	const VkViewport& viewport = book_util::GetViewportFlipped(float(extent.width), float(extent.height));
@@ -239,7 +239,7 @@ void TessellateTeapotApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdDrawIndexed(command, m_tessTeapot.indexCount, 1, 0, 0, 0);
 }
 
-void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
+void TessellateGroundApp::RenderHUD(const VkCommandBuffer& command)
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -255,14 +255,14 @@ void TessellateTeapotApp::RenderHUD(const VkCommandBuffer& command)
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
 }
 
-void TessellateTeapotApp::PrepareDepthbuffer()
+void TessellateGroundApp::PrepareDepthbuffer()
 {
 	// デプスバッファを準備する
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	m_depthBuffer = CreateImage(extent.width, extent.height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-void TessellateTeapotApp::PrepareFramebuffers()
+void TessellateGroundApp::PrepareFramebuffers()
 {
 	uint32_t imageCount = m_swapchain->GetImageCount();
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
@@ -279,7 +279,7 @@ void TessellateTeapotApp::PrepareFramebuffers()
 	}
 }
 
-bool TessellateTeapotApp::OnSizeChanged(uint32_t width, uint32_t height)
+bool TessellateGroundApp::OnSizeChanged(uint32_t width, uint32_t height)
 {
 	bool isResized = VulkanAppBase::OnSizeChanged(width, height);
 	if (isResized)
@@ -300,7 +300,7 @@ bool TessellateTeapotApp::OnSizeChanged(uint32_t width, uint32_t height)
 	return isResized;
 }
 
-void TessellateTeapotApp::PrepareTessTeapot()
+void TessellateGroundApp::PrepareTessTeapot()
 {
 	const std::vector<glm::vec3>& teapotPoints = TeapotPatch::GetTeapotPatchPoints();
 	const std::vector<unsigned int>& teapotIndices = TeapotPatch::GetTeapotPatchIndices();
@@ -469,7 +469,7 @@ void TessellateTeapotApp::PrepareTessTeapot()
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
-void TessellateTeapotApp::CreateSampleLayouts()
+void TessellateGroundApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
 	VkDescriptorSetLayoutBinding descSetLayoutBinding;
