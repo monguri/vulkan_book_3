@@ -5,7 +5,8 @@ layout(location=0) out vec4 outColor;
 
 void main()
 {
-  vec3 lightDir = normalize(vec3(1,1,1));
-  float lmb = clamp(dot(normalize(inNormal), lightDir), 0, 1);
-  outColor = vec4( lmb, lmb, lmb, 1);
+	// 定数バッファのlightDirは使わない
+	vec3 lightDir = normalize(vec3(1.0f, 1.0f, 1.0f));
+	float lmb = clamp(dot(normalize(inNormal), lightDir), 0.0f, 1.0f);
+	outColor = vec4(lmb, lmb, lmb, 1.0f);
 }
