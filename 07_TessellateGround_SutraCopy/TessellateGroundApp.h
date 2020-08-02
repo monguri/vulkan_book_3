@@ -47,8 +47,6 @@ private:
 		glm::mat4 proj;
 		glm::vec4 lightDir;
 		glm::vec4 cameraPos;
-		float tessOuterLevel = 1.0f;
-		float tessInnerLevel = 1.0f;
 	};
 
 	std::vector<BufferObject> m_tessUniform;
@@ -59,8 +57,7 @@ private:
 	ImageObject m_heightMap;
 	ImageObject m_normalMap;
 
-	float m_tessFactor = 1.0f;
-	bool m_isWireframe = false;
+	bool m_isWireframe = true;
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();

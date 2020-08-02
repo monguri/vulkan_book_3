@@ -176,7 +176,7 @@
     <ClInclude Include="TessellateGroundApp.h" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="Shader\tessTeapotFS.frag">
+    <CustomBuild Include="Shader\tessFS.frag">
       <FileType>Document</FileType>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
@@ -185,7 +185,7 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S frag %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
     </CustomBuild>
-    <CustomBuild Include="Shader\tessTeapotTCS.tesc">
+    <CustomBuild Include="Shader\tessTCS.tesc">
       <FileType>Document</FileType>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
@@ -194,7 +194,7 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tesc %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tesc %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
     </CustomBuild>
-    <CustomBuild Include="Shader\tessTeapotTES.tese">
+    <CustomBuild Include="Shader\tessTES.tese">
       <FileType>Document</FileType>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
@@ -203,7 +203,7 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tese %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tese %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
     </CustomBuild>
-    <CustomBuild Include="Shader\tessTeapotVS.vert">
+    <CustomBuild Include="Shader\tessVS.vert">
       <FileType>Document</FileType>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>

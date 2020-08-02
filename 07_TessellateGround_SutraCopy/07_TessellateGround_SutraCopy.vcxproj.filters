@@ -103,18 +103,12 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader\tessTeapotFS.frag">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\tessTeapotTCS.tesc">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\tessTeapotTES.tese">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\tessTeapotVS.vert">
-      <Filter>Shader</Filter>
-    </None>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Shader\tessVS.vert" />
+    <CustomBuild Include="Shader\tessTES.tese" />
+    <CustomBuild Include="Shader\tessTCS.tesc" />
+    <CustomBuild Include="Shader\tessFS.frag" />
   </ItemGroup>
 </Project>

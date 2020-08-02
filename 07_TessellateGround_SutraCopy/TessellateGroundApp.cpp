@@ -145,14 +145,12 @@ void TessellateGroundApp::Render()
 		);
 		tessParams.lightDir = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
 		tessParams.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		tessParams.tessOuterLevel = m_tessFactor;
-		tessParams.tessInnerLevel = m_tessFactor;
 		WriteToHostVisibleMemory(m_tessUniform[m_imageIndex].memory, sizeof(tessParams), &tessParams);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
 		{
-			{0.25f, 0.25f, 0.25f, 0.0f}, // for Color
+			{0.85f, 0.5f, 0.5f, 0.0f}, // for Color
 			{1.0f, 0}, // for Depth
 		}
 	};
@@ -259,7 +257,6 @@ void TessellateGroundApp::RenderHUD(const VkCommandBuffer& command)
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
-	ImGui::SliderFloat("TessFactor", &m_tessFactor, 1.0f, 32.0f, "%.1f");
 	ImGui::Checkbox("WireFrame", &m_isWireframe);
 	ImGui::End();
 
@@ -512,7 +509,7 @@ void TessellateGroundApp::PreparePrimitiveResource()
 			);
 			v.UV = vec2(
 				v.Position.x / edge,
-				v.Position.y / edge
+				v.Position.z / edge
 			);
 
 			vertices.push_back(v);
@@ -539,12 +536,12 @@ void TessellateGroundApp::PreparePrimitiveResource()
 			int v0 = x, v1 = x + 1;
 			v0 = v0 + rows * z;
 			v1 = v1 + rows * z;
-#if 0 // TODO:まずはTringleListで
+#if 1
 			indices.push_back(v0);
 			indices.push_back(v1);
 			indices.push_back(v0 + rows);
 			indices.push_back(v1 + rows);
-#else
+#else // TODO:まずはTringleListで
 			indices.push_back(v0);
 			indices.push_back(v1);
 			indices.push_back(v0 + rows);
@@ -560,7 +557,7 @@ void TessellateGroundApp::PreparePrimitiveResource()
 	for (Vertex& v : vertices)
 	{
 		v.Position.x -= edge * 0.5f;
-		v.Position.y -= edge * 0.5f;
+		v.Position.z -= edge * 0.5f;
 	}
 
 	m_quad = CreateSimpleModel(vertices, indices);
@@ -648,14 +645,14 @@ void TessellateGroundApp::PreparePrimitiveResource()
 	inputAssemblyCI.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssemblyCI.pNext = nullptr;
 	inputAssemblyCI.flags = 0;
-#if 0 // TODO:まずはTringleListで
+#if 1
 	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-#else
+#else // TODO:まずはTringleListで
 	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 #endif
 	inputAssemblyCI.primitiveRestartEnable = VK_FALSE;
 
-#if 0 // TODO:まずはTringleListで
+#if 1 // TODO:まずはTringleListで
 	VkPipelineTessellationStateCreateInfo tessStateCI{};
 	tessStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
 	tessStateCI.pNext = nullptr;
@@ -709,12 +706,12 @@ void TessellateGroundApp::PreparePrimitiveResource()
 
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
-		book_util::LoadShader(m_device, "tessTeapotVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-#if 0 // TODO:まずはTringleListで
-		book_util::LoadShader(m_device, "tessTeapotTCS.spv", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT),
-		book_util::LoadShader(m_device, "tessTeapotTES.spv", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT),
+		book_util::LoadShader(m_device, "tessVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+#if 1 // TODO:まずはTringleListで
+		book_util::LoadShader(m_device, "tessTCS.spv", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT),
+		book_util::LoadShader(m_device, "tessTES.spv", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT),
 #endif
-		book_util::LoadShader(m_device, "tessTeapotFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+		book_util::LoadShader(m_device, "tessFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 
 	// パイプライン構築
@@ -726,9 +723,9 @@ void TessellateGroundApp::PreparePrimitiveResource()
 	pipelineCI.pStages = shaderStages.data();
 	pipelineCI.pVertexInputState = &pipelineVisCI;
 	pipelineCI.pInputAssemblyState = &inputAssemblyCI;
-#if 0 // TODO:まずはTringleListで
+#if 1
 	pipelineCI.pTessellationState = &tessStateCI;
-#else
+#else // TODO:まずはTringleListで
 	pipelineCI.pTessellationState = nullptr;
 #endif
 	pipelineCI.pViewportState = &viewportStateCI;
