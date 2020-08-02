@@ -25,9 +25,21 @@ uniform sampler2D texSampler;
 layout(set=0, binding=2)
 uniform sampler2D normalSampler;
 
+// ニア、ファーの基準距離とそこでのテッセレーション係数を固定で決めておいて、現在の距離からLerpでテッセレーション係数を決定する
 float CalcTessFactor(vec4 v)
 {
-	return 1.0f;
+	const float tessNear = 2.0f;
+	const float tessFar = 150.0f;
+	const float MaxTessFactor = 32.0f;
+
+	float dist = length((world * v).xyz - cameraPos.xyz);
+
+	// [tessNear, tessFar]を[1, MaxTessFactor]にLerpする
+	float val = MaxTessFactor - (MaxTessFactor - 1) * (dist - tessNear) / (tessFar - tessNear);
+
+	// 距離がtessNear以下、tessFar以上のときもあるのでclamp
+	val = clamp(val, 1, MaxTessFactor);
+	return val;
 }
 
 void ComputeTessLevel()
