@@ -347,7 +347,7 @@ VulkanAppBase::ImageObject TessellateGroundApp::Load2DTextureFromFile(const char
 	VkImageCreateInfo imageCI{};
 	imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageCI.pNext = nullptr;
-	imageCI.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT; // Cubemap‚Æ‚µ‚Äˆµ‚¤‚½‚ß
+	imageCI.flags = 0;
 	imageCI.imageType = VK_IMAGE_TYPE_2D;
 	imageCI.format = VK_FORMAT_R8G8B8A8_UNORM;
 	imageCI.extent.width = width;
