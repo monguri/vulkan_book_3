@@ -42,6 +42,21 @@ float CalcTessFactor(vec4 v)
 	return val;
 }
 
+float CalcNormalBias(vec4 p, vec3 n)
+{
+	// 法線とカメラベクトルの角度からsin^2を計算し、
+	// [閾値,1]との間でLerpする
+	const float normalThreshold = 0.85f;
+
+	vec3 fromCamera = normalize(p.xyz - cameraPos.xyz);
+	float cos2 = dot(n, fromCamera);
+	cos2 *= cos2;
+
+	float normalFactor = 1.0f - cos2;
+	float bias = max(normalFactor - normalThreshold, 0.0f) / (1.0f - normalThreshold);
+	return bias * 32.0f;
+}
+
 void ComputeTessLevel()
 {
 	// パッチのgl_inのインデックス
@@ -53,6 +68,7 @@ void ComputeTessLevel()
 	// 2     3
 	//
 	vec4 v[4];
+	vec3 n[4];
 	int indices[][2] = {
 		{2, 0},
 		{0, 1},
@@ -65,14 +81,19 @@ void ComputeTessLevel()
 		int idx0 = indices[i][0];
 		int idx1 = indices[i][1];
 		v[i] = 0.5f * (gl_in[idx0].gl_Position + gl_in[idx1].gl_Position);
+
+		vec2 uv = 0.5f * (inUV[idx0] + inUV[idx1]);
+		n[i] = texture(normalSampler, uv).xyz;
+		// テクスチャだと[0,1]で入っているので[-0.5,0.5]にしてさらに正規化する
+		n[i] = normalize(n[i] - 0.5f);
 	}
 
-	gl_TessLevelOuter[0] = CalcTessFactor(v[0]);
-	gl_TessLevelOuter[2] = CalcTessFactor(v[2]);
+	gl_TessLevelOuter[0] = CalcTessFactor(v[0]) + CalcNormalBias(v[0], n[0]);
+	gl_TessLevelOuter[2] = CalcTessFactor(v[2]) + CalcNormalBias(v[2], n[2]);
 	gl_TessLevelInner[0] = 0.5f * (gl_TessLevelOuter[0] + gl_TessLevelOuter[2]);
 
-	gl_TessLevelOuter[1] = CalcTessFactor(v[1]);
-	gl_TessLevelOuter[3] = CalcTessFactor(v[3]);
+	gl_TessLevelOuter[1] = CalcTessFactor(v[1]) + CalcNormalBias(v[1], n[1]);
+	gl_TessLevelOuter[3] = CalcTessFactor(v[3]) + CalcNormalBias(v[3], n[3]);
 	gl_TessLevelInner[1] = 0.5f * (gl_TessLevelOuter[1] + gl_TessLevelOuter[3]);
 }
 
