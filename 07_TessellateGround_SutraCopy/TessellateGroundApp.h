@@ -3,10 +3,10 @@
 #include <glm/glm.hpp>
 #include "Camera.h"
 
-class TessellateTeapotApp : public VulkanAppBase
+class TessellateGroundApp : public VulkanAppBase
 {
 public:
-	TessellateTeapotApp();
+	TessellateGroundApp();
 
 	virtual void Prepare() override;
 	virtual void Cleanup() override;
@@ -18,6 +18,12 @@ public:
 	virtual bool OnMouseMove(int dx, int dy) override;
 
 private:
+	struct Vertex
+	{
+		glm::vec3 Position;
+		glm::vec2 UV;
+	};
+
 	ImageObject m_depthBuffer;
 	std::vector<VkFramebuffer> m_framebuffers;
 
@@ -32,6 +38,7 @@ private:
 	uint32_t m_imageIndex = 0;
 
 	Camera m_camera;
+	VkSampler m_texSampler = VK_NULL_HANDLE;
 
 	struct TessellationShaderParameters
 	{
@@ -40,23 +47,24 @@ private:
 		glm::mat4 proj;
 		glm::vec4 lightDir;
 		glm::vec4 cameraPos;
-		float tessOuterLevel = 1.0f;
-		float tessInnerLevel = 1.0f;
 	};
 
-	std::vector<BufferObject> m_tessTeapotUniform;
-	std::vector<VkDescriptorSet> m_dsTeapot;
-	VkPipeline m_tessTeapotPipeline = VK_NULL_HANDLE;
-	VkPipeline m_tessTeapotWired = VK_NULL_HANDLE;
-	ModelData m_tessTeapot;
+	std::vector<BufferObject> m_tessUniform;
+	std::vector<VkDescriptorSet> m_dsTessSample;
+	VkPipeline m_tessGroundPipeline = VK_NULL_HANDLE;
+	VkPipeline m_tessGroundWired = VK_NULL_HANDLE;
+	ModelData m_quad;
+	ImageObject m_heightMap;
+	ImageObject m_normalMap;
 
-	float m_tessFactor = 1.0f;
-	bool m_isWireframe = false;
+	bool m_isWireframe = true;
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
-	void PrepareTessTeapot();
+	void PrepareSceneResource();
+	ImageObject Load2DTextureFromFile(const char* fileName);
+	void PreparePrimitiveResource();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
 };
