@@ -41,6 +41,7 @@ void ComputeFilterApp::Prepare()
 	}
 
 	PrepareSceneResource();
+	PrepareComputeResource();
 	PreparePrimitiveResource();
 }
 
@@ -56,7 +57,6 @@ void ComputeFilterApp::Cleanup()
 	// CenterTeapot
 	{
 		vkDestroyPipeline(m_device, m_tessGroundPipeline, nullptr);
-		vkDestroyPipeline(m_device, m_tessGroundWired, nullptr);
 
 		for (const BufferObject& ubo : m_tessUniform)
 		{
@@ -133,19 +133,10 @@ void ComputeFilterApp::Render()
 
 	{
 		// 中央ティーポット用の定数バッファへの値の設定
-		TessellationShaderParameters tessParams{};
-		tessParams.world = glm::mat4(1.0f);
-		tessParams.view = m_camera.GetViewMatrix();
+		ShaderParameters shaderParams{};
 		const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
-		tessParams.proj = glm::perspectiveRH(
-			glm::radians(45.0f),
-			float(extent.width) / float(extent.height),
-			0.1f,
-			1000.0f
-		);
-		tessParams.lightDir = glm::vec4(0.0f, 10.0f, 10.0f, 0.0f);
-		tessParams.cameraPos = glm::vec4(m_camera.GetPosition(), 1.0f);
-		WriteToHostVisibleMemory(m_tessUniform[m_imageIndex].memory, sizeof(tessParams), &tessParams);
+		shaderParams.proj = glm::ortho(-640.0f, 640.0f, -360.0f, 360.0f, -100.0f, 100.0f);
+		WriteToHostVisibleMemory(m_tessUniform[m_imageIndex].memory, sizeof(shaderParams), &shaderParams);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -229,23 +220,21 @@ void ComputeFilterApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
 	// 中央ティーポットの描画
-	if (m_isWireframe)
-	{
-		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessGroundWired);
-	}
-	else
-	{
-		vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessGroundPipeline);
-	}
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessGroundPipeline);
 
 	VkDescriptorSet ds = m_dsTessSample[m_imageIndex];
-
-	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1t2");
-	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
-	vkCmdBindIndexBuffer(command, m_quad.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	VkDeviceSize offsets[] = {0};
+
+	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1");
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
+
+	vkCmdBindIndexBuffer(command, m_quad.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdBindVertexBuffers(command, 0, 1, &m_quad.resVertexBuffer.buffer, offsets);
 	vkCmdDrawIndexed(command, m_quad.indexCount, 1, 0, 0, 0);
+
+	vkCmdBindIndexBuffer(command, m_quad2.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindVertexBuffers(command, 0, 1, &m_quad2.resVertexBuffer.buffer, offsets);
+	vkCmdDrawIndexed(command, m_quad2.indexCount, 1, 0, 0, 0);
 }
 
 void ComputeFilterApp::RenderHUD(const VkCommandBuffer& command)
@@ -257,7 +246,6 @@ void ComputeFilterApp::RenderHUD(const VkCommandBuffer& command)
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
-	ImGui::Checkbox("WireFrame", &m_isWireframe);
 	ImGui::End();
 
 	ImGui::Render();
@@ -488,85 +476,44 @@ VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* f
 	return texture;
 }
 
+void ComputeFilterApp::PrepareComputeResource()
+{
+}
+
 void ComputeFilterApp::PreparePrimitiveResource()
 {
 	using namespace glm;
-	using VertexData = std::vector<Vertex>;
-	using IndexData = std::vector<uint32_t>;
-	const float edge = 200.0f;
-	const int divide = 10;
+	std::vector<Vertex> vertices;
+	const float OFFSET = 10.0f;
 
-	VertexData vertices;
-	for (int z = 0; z < divide + 1; ++z)
-	{
-		for (int x = 0; x < divide + 1; ++x)
-		{
-			Vertex v;
-			v.Position = vec3(
-				edge * x / divide,
-				0.0f,
-				edge * z / divide
-			);
-			v.UV = vec2(
-				v.Position.x / edge,
-				v.Position.z / edge
-			);
+	// テクスチャを貼り付ける矩形の作成
+	vertices = {
+		{vec3(-480.0f - OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
+		{vec3(0.0f - OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
+		{vec3(-480.0f - OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
+		{vec3(0.0f - OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
+	};
 
-			vertices.push_back(v);
-		}
-	}
-
-	// インデックスはこのようなつけ方
-	// 0     1     2
-	// |------------//
-	// |    /|    /|
-	// |   / |   / |
-	// |  /  |  /  |
-	// | /   | /   |
-	// |/    |/    |
-	// |------------//
-	// 11    12    13
-	//
-	IndexData indices;
-	for (int z = 0; z < divide; ++z)
-	{
-		for (int x = 0; x < divide; ++x)
-		{
-			const int rows = divide + 1;
-			int v0 = x, v1 = x + 1;
-			v0 = v0 + rows * z;
-			v1 = v1 + rows * z;
-#if 1
-			indices.push_back(v0);
-			indices.push_back(v1);
-			indices.push_back(v0 + rows);
-			indices.push_back(v1 + rows);
-#else // TODO:まずはTringleListで
-			indices.push_back(v0);
-			indices.push_back(v1);
-			indices.push_back(v0 + rows);
-
-			indices.push_back(v1 + rows);
-			indices.push_back(v0 + rows);
-			indices.push_back(v1);
-#endif
-		}
-	}
-
-	// 中心補正
-	for (Vertex& v : vertices)
-	{
-		v.Position.x -= edge * 0.5f;
-		v.Position.z -= edge * 0.5f;
-	}
+	std::vector<uint32_t> indices = {
+		0, 1, 2, 3
+	};
 
 	m_quad = CreateSimpleModel(vertices, indices);
 
+	vertices = {
+		{vec3(+480.0f + OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
+		{vec3(0.0f + OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
+		{vec3(+480.0f + OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
+		{vec3(0.0f + OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
+	};
+
+	m_quad2 = CreateSimpleModel(vertices, indices);
+
 	// ディスクリプタセットの作成
-	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1t2");
+	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
 	uint32_t imageCount = m_swapchain->GetImageCount();
 
-	uint32_t bufferSize = uint32_t(sizeof(TessellationShaderParameters));
+	uint32_t bufferSize = uint32_t(sizeof(ShaderParameters));
 	m_tessUniform = CreateUniformBuffers(bufferSize, imageCount);
 
 	m_dsTessSample.resize(imageCount);
@@ -580,21 +527,9 @@ void ComputeFilterApp::PreparePrimitiveResource()
 		bufferInfo.offset = 0;
 		bufferInfo.range = VK_WHOLE_SIZE;
 
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.sampler = m_texSampler;
-		imageInfo.imageView = m_heightMap.view;
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		VkDescriptorImageInfo imageInfo2{};
-		imageInfo2.sampler = m_texSampler;
-		imageInfo2.imageView = m_normalMap.view;
-		imageInfo2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
 		std::vector<VkWriteDescriptorSet> writeDS =
 		{
-			book_util::CreateWriteDescriptorSet(ds, 0, &bufferInfo),
-			book_util::CreateWriteDescriptorSet(ds, 1, &imageInfo),
-			book_util::CreateWriteDescriptorSet(ds, 2, &imageInfo2)
+			book_util::CreateWriteDescriptorSet(ds, 0, &bufferInfo)
 		};
 
 		vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
@@ -645,20 +580,8 @@ void ComputeFilterApp::PreparePrimitiveResource()
 	inputAssemblyCI.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssemblyCI.pNext = nullptr;
 	inputAssemblyCI.flags = 0;
-#if 1
-	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-#else // TODO:まずはTringleListで
-	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-#endif
+	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
 	inputAssemblyCI.primitiveRestartEnable = VK_FALSE;
-
-#if 1 // TODO:まずはTringleListで
-	VkPipelineTessellationStateCreateInfo tessStateCI{};
-	tessStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
-	tessStateCI.pNext = nullptr;
-	tessStateCI.flags = 0;
-	tessStateCI.patchControlPoints = 4;
-#endif
 
 	VkPipelineMultisampleStateCreateInfo multisampleCI{};
 	multisampleCI.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -688,7 +611,7 @@ void ComputeFilterApp::PreparePrimitiveResource()
 	viewportStateCI.scissorCount = 1;
 	viewportStateCI.pScissors = &scissor;
 
-	VkPipelineRasterizationStateCreateInfo rasterizerState = book_util::GetDefaultRasterizerState(VK_CULL_MODE_BACK_BIT); // バックフェイスカリングする
+	const VkPipelineRasterizationStateCreateInfo& rasterizerState = book_util::GetDefaultRasterizerState();
 
 	const VkPipelineDepthStencilStateCreateInfo& dsState = book_util::GetDefaultDepthStencilState();
 
@@ -707,10 +630,6 @@ void ComputeFilterApp::PreparePrimitiveResource()
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
 		book_util::LoadShader(m_device, "tessVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-#if 1 // TODO:まずはTringleListで
-		book_util::LoadShader(m_device, "tessTCS.spv", VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT),
-		book_util::LoadShader(m_device, "tessTES.spv", VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT),
-#endif
 		book_util::LoadShader(m_device, "tessFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 
@@ -723,18 +642,14 @@ void ComputeFilterApp::PreparePrimitiveResource()
 	pipelineCI.pStages = shaderStages.data();
 	pipelineCI.pVertexInputState = &pipelineVisCI;
 	pipelineCI.pInputAssemblyState = &inputAssemblyCI;
-#if 1
-	pipelineCI.pTessellationState = &tessStateCI;
-#else // TODO:まずはTringleListで
 	pipelineCI.pTessellationState = nullptr;
-#endif
 	pipelineCI.pViewportState = &viewportStateCI;
 	pipelineCI.pRasterizationState = &rasterizerState;
 	pipelineCI.pMultisampleState = &multisampleCI;
 	pipelineCI.pDepthStencilState = &dsState;
 	pipelineCI.pColorBlendState = &colorBlendStateCI;
 	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
-	pipelineCI.layout = GetPipelineLayout("u1t2");
+	pipelineCI.layout = GetPipelineLayout("u1");
 	pipelineCI.renderPass = GetRenderPass("default");
 	pipelineCI.subpass = 0;
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
@@ -743,33 +658,18 @@ void ComputeFilterApp::PreparePrimitiveResource()
 	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessGroundPipeline);
 	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
 
-	// ワイアーフレーム描画用も作成
-	rasterizerState.polygonMode = VK_POLYGON_MODE_LINE;
-	result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessGroundWired);
-	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
-
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
 void ComputeFilterApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
-	std::array<VkDescriptorSetLayoutBinding, 3> dsLayoutBindings;
+	std::array<VkDescriptorSetLayoutBinding, 1> dsLayoutBindings;
 	dsLayoutBindings[0].binding = 0;
 	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	dsLayoutBindings[0].descriptorCount = 1;
 	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_ALL;
 	dsLayoutBindings[0].pImmutableSamplers = nullptr;
-	dsLayoutBindings[1].binding = 1;
-	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dsLayoutBindings[1].descriptorCount = 1;
-	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_ALL;
-	dsLayoutBindings[1].pImmutableSamplers = nullptr;
-	dsLayoutBindings[2].binding = 2;
-	dsLayoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dsLayoutBindings[2].descriptorCount = 1;
-	dsLayoutBindings[2].stageFlags = VK_SHADER_STAGE_ALL;
-	dsLayoutBindings[2].pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
 	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -781,10 +681,10 @@ void ComputeFilterApp::CreateSampleLayouts()
 
 	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
 	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
-	RegisterLayout("u1t2", dsLayout);
+	RegisterLayout("u1", dsLayout);
 
 	// パイプラインレイアウト
-	dsLayout = GetDescriptorSetLayout("u1t2");
+	dsLayout = GetDescriptorSetLayout("u1");
 	VkPipelineLayoutCreateInfo layoutCI{};
 	layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layoutCI.pNext = nullptr;
@@ -797,6 +697,6 @@ void ComputeFilterApp::CreateSampleLayouts()
 	VkPipelineLayout layout = VK_NULL_HANDLE;
 	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
 	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
-	RegisterLayout("u1t2", layout);
+	RegisterLayout("u1", layout);
 }
 
