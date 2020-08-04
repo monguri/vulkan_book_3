@@ -629,8 +629,8 @@ void ComputeFilterApp::PreparePrimitiveResource()
 
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
 	{
-		book_util::LoadShader(m_device, "tessVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-		book_util::LoadShader(m_device, "tessFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+		book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+		book_util::LoadShader(m_device, "shaderFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
 	};
 
 	// パイプライン構築
