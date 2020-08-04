@@ -129,7 +129,7 @@
     <ClCompile Include="..\common\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="TessellateGroundApp.cpp" />
+    <ClCompile Include="ComputeFilterApp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\commonSutraCopy\stb_image.h" />
@@ -146,7 +146,7 @@
     <ClInclude Include="..\common\imgui\imstb_textedit.h" />
     <ClInclude Include="..\common\imgui\imstb_truetype.h" />
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="TessellateGroundApp.h" />
+    <ClInclude Include="ComputeFilterApp.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shader\tessFS.frag">

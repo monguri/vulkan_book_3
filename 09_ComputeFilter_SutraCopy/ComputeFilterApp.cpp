@@ -1,4 +1,4 @@
-#include "TessellateGroundApp.h"
+#include "ComputeFilterApp.h"
 #include "VulkanBookUtil.h"
 
 #define STB_IMAGE_IMPLEMENTATION
