@@ -12,7 +12,7 @@
 
 #include <array>
 
-TessellateGroundApp::TessellateGroundApp()
+ComputeFilterApp::ComputeFilterApp()
 {
 	m_camera.SetLookAt(
 		glm::vec3(48.5f, 25.0f, 65.0f),
@@ -20,7 +20,7 @@ TessellateGroundApp::TessellateGroundApp()
 	);
 }
 
-void TessellateGroundApp::Prepare()
+void ComputeFilterApp::Prepare()
 {
 	CreateSampleLayouts();
 
@@ -44,7 +44,7 @@ void TessellateGroundApp::Prepare()
 	PreparePrimitiveResource();
 }
 
-void TessellateGroundApp::Cleanup()
+void ComputeFilterApp::Cleanup()
 {
 	DestroyBuffer(m_quad.resVertexBuffer);
 	DestroyBuffer(m_quad.resIndexBuffer);
@@ -85,7 +85,7 @@ void TessellateGroundApp::Cleanup()
 	m_commandBuffers.clear();
 }
 
-bool TessellateGroundApp::OnMouseButtonDown(int button)
+bool ComputeFilterApp::OnMouseButtonDown(int button)
 {
 	if (VulkanAppBase::OnMouseButtonDown(button))
 	{
@@ -96,7 +96,7 @@ bool TessellateGroundApp::OnMouseButtonDown(int button)
 	return true;
 }
 
-bool TessellateGroundApp::OnMouseButtonUp(int button)
+bool ComputeFilterApp::OnMouseButtonUp(int button)
 {
 	if (VulkanAppBase::OnMouseButtonUp(button))
 	{
@@ -107,7 +107,7 @@ bool TessellateGroundApp::OnMouseButtonUp(int button)
 	return true;
 }
 
-bool TessellateGroundApp::OnMouseMove(int dx, int dy)
+bool ComputeFilterApp::OnMouseMove(int dx, int dy)
 {
 	if (VulkanAppBase::OnMouseMove(dx, dy))
 	{
@@ -118,7 +118,7 @@ bool TessellateGroundApp::OnMouseMove(int dx, int dy)
 	return true;
 }
 
-void TessellateGroundApp::Render()
+void ComputeFilterApp::Render()
 {
 	if (m_isMinimizedWindow)
 	{
@@ -213,7 +213,7 @@ void TessellateGroundApp::Render()
 	m_swapchain->QueuePresent(m_deviceQueue, m_imageIndex, m_renderCompletedSem);
 }
 
-void TessellateGroundApp::RenderToMain(const VkCommandBuffer& command)
+void ComputeFilterApp::RenderToMain(const VkCommandBuffer& command)
 {
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	const VkViewport& viewport = book_util::GetViewportFlipped(float(extent.width), float(extent.height));
@@ -248,7 +248,7 @@ void TessellateGroundApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdDrawIndexed(command, m_quad.indexCount, 1, 0, 0, 0);
 }
 
-void TessellateGroundApp::RenderHUD(const VkCommandBuffer& command)
+void ComputeFilterApp::RenderHUD(const VkCommandBuffer& command)
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -264,14 +264,14 @@ void TessellateGroundApp::RenderHUD(const VkCommandBuffer& command)
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
 }
 
-void TessellateGroundApp::PrepareDepthbuffer()
+void ComputeFilterApp::PrepareDepthbuffer()
 {
 	// デプスバッファを準備する
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 	m_depthBuffer = CreateImage(extent.width, extent.height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-void TessellateGroundApp::PrepareFramebuffers()
+void ComputeFilterApp::PrepareFramebuffers()
 {
 	uint32_t imageCount = m_swapchain->GetImageCount();
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
@@ -288,7 +288,7 @@ void TessellateGroundApp::PrepareFramebuffers()
 	}
 }
 
-bool TessellateGroundApp::OnSizeChanged(uint32_t width, uint32_t height)
+bool ComputeFilterApp::OnSizeChanged(uint32_t width, uint32_t height)
 {
 	bool isResized = VulkanAppBase::OnSizeChanged(width, height);
 	if (isResized)
@@ -309,7 +309,7 @@ bool TessellateGroundApp::OnSizeChanged(uint32_t width, uint32_t height)
 	return isResized;
 }
 
-void TessellateGroundApp::PrepareSceneResource()
+void ComputeFilterApp::PrepareSceneResource()
 {
 	// サンプラーの準備。これは2Dテクスチャのときと何も変わらない
 	VkSamplerCreateInfo samplerCI{};
@@ -338,7 +338,7 @@ void TessellateGroundApp::PrepareSceneResource()
 	m_normalMap = Load2DTextureFromFile("normalmap.png");
 }
 
-VulkanAppBase::ImageObject TessellateGroundApp::Load2DTextureFromFile(const char* fileName)
+VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* fileName)
 {
 	int width, height = 0;
 	stbi_uc* rawimage = { nullptr };
@@ -488,7 +488,7 @@ VulkanAppBase::ImageObject TessellateGroundApp::Load2DTextureFromFile(const char
 	return texture;
 }
 
-void TessellateGroundApp::PreparePrimitiveResource()
+void ComputeFilterApp::PreparePrimitiveResource()
 {
 	using namespace glm;
 	using VertexData = std::vector<Vertex>;
@@ -751,7 +751,7 @@ void TessellateGroundApp::PreparePrimitiveResource()
 	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
-void TessellateGroundApp::CreateSampleLayouts()
+void ComputeFilterApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
 	std::array<VkDescriptorSetLayoutBinding, 3> dsLayoutBindings;

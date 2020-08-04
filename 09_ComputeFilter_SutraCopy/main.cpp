@@ -1,8 +1,8 @@
 #include "TessellateGroundApp.h"
 #include "VulkanBookUtil.h"
 
-const int WindowWidth = 800, WindowHeight = 600;
-const char* AppTile = "TessellateTeapot";
+const int WindowWidth = 1280, WindowHeight = 720;
+const char* AppTile = "ComputeFilter";
 
 static void KeyboardInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -102,7 +102,7 @@ int _stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmd
 	glfwSetScrollCallback(window, MouseWheelCallback);
 	glfwSetWindowSizeCallback(window, WindowResizeCallback);
 
-	TessellateGroundApp theApp;
+	ComputeFilterApp theApp;
 	glfwSetWindowUserPointer(window, &theApp);
 
 	try
