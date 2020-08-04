@@ -118,5 +118,6 @@
     <None Include="Shader\tessVS.vert">
       <Filter>Shader</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
