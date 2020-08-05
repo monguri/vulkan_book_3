@@ -106,18 +106,16 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader\tessFS.frag">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\tessTCS.tesc">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\tessTES.tese">
-      <Filter>Shader</Filter>
-    </None>
-    <None Include="Shader\tessVS.vert">
-      <Filter>Shader</Filter>
-    </None>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Shader\tessTCS.tesc" />
+    <CustomBuild Include="Shader\tessTES.tese" />
+    <CustomBuild Include="Shader\shaderFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\shaderVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

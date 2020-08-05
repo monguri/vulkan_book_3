@@ -158,24 +158,6 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
     </CustomBuild>
-    <CustomBuild Include="Shader\tessTCS.tesc">
-      <FileType>Document</FileType>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tesc %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Tessellation Control Shader</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tesc %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Tessellation Control Shader</Message>
-    </CustomBuild>
-    <CustomBuild Include="Shader\tessTES.tese">
-      <FileType>Document</FileType>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tese %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Tessellation Evaluate Shader</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S tese %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Tessellation Evaluate Shader</Message>
-    </CustomBuild>
     <CustomBuild Include="Shader\shaderVS.vert">
       <FileType>Document</FileType>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
