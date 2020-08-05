@@ -48,8 +48,11 @@ private:
 	std::vector<BufferObject> m_shaderUniforms;
 	std::vector<VkDescriptorSet> m_dsDrawTextures[2];
 
-	VkPipeline m_tessGroundPipeline = VK_NULL_HANDLE;
+	VkPipeline m_pipeline = VK_NULL_HANDLE;
 	ModelData m_quad, m_quad2;
+
+	int m_selectedFilter = 0;
+
 	ImageObject m_srcBuffer;
 	ImageObject m_dstBuffer;
 

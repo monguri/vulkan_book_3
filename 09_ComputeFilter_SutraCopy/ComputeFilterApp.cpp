@@ -59,7 +59,7 @@ void ComputeFilterApp::Cleanup()
 	DestroyImage(m_dstBuffer);
 
 	// CenterTeapot
-	vkDestroyPipeline(m_device, m_tessGroundPipeline, nullptr);
+	vkDestroyPipeline(m_device, m_pipeline, nullptr);
 
 	for (const BufferObject& ubo : m_shaderUniforms)
 	{
@@ -221,7 +221,7 @@ void ComputeFilterApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
 	// 中央ティーポットの描画
-	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessGroundPipeline);
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
 	VkDeviceSize offsets[] = {0};
 
@@ -246,6 +246,7 @@ void ComputeFilterApp::RenderHUD(const VkCommandBuffer& command)
 	// ImGuiウィジェットを描画する
 	ImGui::Begin("Information");
 	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
+	ImGui::Combo("Filter", &m_selectedFilter, "Sepia Filter\0Sobel Filter\0\0");
 	ImGui::End();
 
 	ImGui::Render();
@@ -668,7 +669,7 @@ void ComputeFilterApp::PreparePrimitiveResource()
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCI.basePipelineIndex = 0;
 
-	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_tessGroundPipeline);
+	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_pipeline);
 	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
 
 	book_util::DestroyShaderModules(m_device, shaderStages);
