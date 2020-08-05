@@ -45,12 +45,13 @@ private:
 		glm::mat4 proj;
 	};
 
-	std::vector<BufferObject> m_tessUniform;
-	std::vector<VkDescriptorSet> m_dsTessSample;
+	std::vector<BufferObject> m_shaderUniforms;
+	std::vector<VkDescriptorSet> m_dsDrawTextures[2];
+
 	VkPipeline m_tessGroundPipeline = VK_NULL_HANDLE;
 	ModelData m_quad, m_quad2;
-	ImageObject m_heightMap;
-	ImageObject m_normalMap;
+	ImageObject m_srcBuffer;
+	ImageObject m_dstBuffer;
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();

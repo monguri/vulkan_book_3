@@ -49,27 +49,28 @@ void ComputeFilterApp::Cleanup()
 {
 	DestroyBuffer(m_quad.resVertexBuffer);
 	DestroyBuffer(m_quad.resIndexBuffer);
+
+	DestroyBuffer(m_quad2.resVertexBuffer);
+	DestroyBuffer(m_quad2.resIndexBuffer);
+
 	vkDestroySampler(m_device, m_texSampler, nullptr);
 
-	DestroyImage(m_normalMap);
-	DestroyImage(m_heightMap);
+	DestroyImage(m_srcBuffer);
+	DestroyImage(m_dstBuffer);
 
 	// CenterTeapot
+	vkDestroyPipeline(m_device, m_tessGroundPipeline, nullptr);
+
+	for (const BufferObject& ubo : m_shaderUniforms)
 	{
-		vkDestroyPipeline(m_device, m_tessGroundPipeline, nullptr);
+		DestroyBuffer(ubo);
+	}
+	m_shaderUniforms.clear();
 
-		for (const BufferObject& ubo : m_tessUniform)
-		{
-			DestroyBuffer(ubo);
-		}
-		m_tessUniform.clear();
-
-		for (const VkDescriptorSet& ds : m_dsTessSample)
-		{
-			// vkFreeDescriptorSetsで複数を一度に解放できるが生成時関数との対称性を重んじて
-			DeallocateDescriptorset(ds);
-		}
-		m_dsTessSample.clear();
+	for (std::vector<VkDescriptorSet>& ds : m_dsDrawTextures)
+	{
+		vkFreeDescriptorSets(m_device, m_descriptorPool, uint32_t(ds.size()), ds.data());
+		ds.clear();
 	}
 
 	DestroyImage(m_depthBuffer);
@@ -136,7 +137,7 @@ void ComputeFilterApp::Render()
 		ShaderParameters shaderParams{};
 		const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
 		shaderParams.proj = glm::ortho(-640.0f, 640.0f, -360.0f, 360.0f, -100.0f, 100.0f);
-		WriteToHostVisibleMemory(m_tessUniform[m_imageIndex].memory, sizeof(shaderParams), &shaderParams);
+		WriteToHostVisibleMemory(m_shaderUniforms[m_imageIndex].memory, sizeof(shaderParams), &shaderParams);
 	}
 
 	std::array<VkClearValue, 2> clearValue = {
@@ -222,16 +223,15 @@ void ComputeFilterApp::RenderToMain(const VkCommandBuffer& command)
 	// 中央ティーポットの描画
 	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_tessGroundPipeline);
 
-	VkDescriptorSet ds = m_dsTessSample[m_imageIndex];
 	VkDeviceSize offsets[] = {0};
 
-	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1");
-	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &ds, 0, nullptr);
-
+	VkPipelineLayout pipelineLayout = GetPipelineLayout("u1t1");
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &m_dsDrawTextures[0][m_imageIndex], 0, nullptr);
 	vkCmdBindIndexBuffer(command, m_quad.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdBindVertexBuffers(command, 0, 1, &m_quad.resVertexBuffer.buffer, offsets);
 	vkCmdDrawIndexed(command, m_quad.indexCount, 1, 0, 0, 0);
 
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &m_dsDrawTextures[1][m_imageIndex], 0, nullptr);
 	vkCmdBindIndexBuffer(command, m_quad2.resIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdBindVertexBuffers(command, 0, 1, &m_quad2.resVertexBuffer.buffer, offsets);
 	vkCmdDrawIndexed(command, m_quad2.indexCount, 1, 0, 0, 0);
@@ -322,8 +322,8 @@ void ComputeFilterApp::PrepareSceneResource()
 	VkResult result = vkCreateSampler(m_device, &samplerCI, nullptr, &m_texSampler);
 	ThrowIfFailed(result, "vkCreateSampler Failed.");
 
-	m_heightMap = Load2DTextureFromFile("heightmap.png");
-	m_normalMap = Load2DTextureFromFile("normalmap.png");
+	m_srcBuffer = Load2DTextureFromFile("image.png");
+	m_dstBuffer = Load2DTextureFromFile("image.png");
 }
 
 VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* fileName)
@@ -501,38 +501,51 @@ void ComputeFilterApp::PreparePrimitiveResource()
 	m_quad = CreateSimpleModel(vertices, indices);
 
 	vertices = {
-		{vec3(+480.0f + OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
-		{vec3(0.0f + OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
-		{vec3(+480.0f + OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
-		{vec3(0.0f + OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
+		{vec3(+480.0f + OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
+		{vec3(0.0f + OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
+		{vec3(+480.0f + OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
+		{vec3(0.0f + OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
 	};
 
 	m_quad2 = CreateSimpleModel(vertices, indices);
 
 	// ディスクリプタセットの作成
-	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
+	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1t1");
 	uint32_t imageCount = m_swapchain->GetImageCount();
 
 	uint32_t bufferSize = uint32_t(sizeof(ShaderParameters));
-	m_tessUniform = CreateUniformBuffers(bufferSize, imageCount);
+	m_shaderUniforms = CreateUniformBuffers(bufferSize, imageCount);
 
-	m_dsTessSample.resize(imageCount);
-	for (uint32_t i = 0; i < imageCount; ++i)
+	VkDescriptorImageInfo textureImage[2];
+	textureImage[0].sampler = m_texSampler;
+	textureImage[0].imageView = m_srcBuffer.view;
+	textureImage[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	textureImage[1].sampler = m_texSampler;
+	textureImage[1].imageView = m_dstBuffer.view;
+	textureImage[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	for (int type = 0; type < 2; ++type)
 	{
-		const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
-		m_dsTessSample[i] = ds;
+		m_dsDrawTextures[type].resize(imageCount);
 
-		VkDescriptorBufferInfo bufferInfo{};
-		bufferInfo.buffer = m_tessUniform[i].buffer;
-		bufferInfo.offset = 0;
-		bufferInfo.range = VK_WHOLE_SIZE;
-
-		std::vector<VkWriteDescriptorSet> writeDS =
+		for (uint32_t i = 0; i < imageCount; ++i)
 		{
-			book_util::CreateWriteDescriptorSet(ds, 0, &bufferInfo)
-		};
+			const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
+			m_dsDrawTextures[type][i] = ds;
 
-		vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = m_shaderUniforms[i].buffer;
+			bufferInfo.offset = 0;
+			bufferInfo.range = VK_WHOLE_SIZE;
+
+			std::vector<VkWriteDescriptorSet> writeDS =
+			{
+				book_util::CreateWriteDescriptorSet(ds, 0, &bufferInfo),
+				book_util::CreateWriteDescriptorSet(ds, 1, &textureImage[type])
+			};
+
+			vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
+		}
 	}
 
 	// 頂点の入力の設定
@@ -649,7 +662,7 @@ void ComputeFilterApp::PreparePrimitiveResource()
 	pipelineCI.pDepthStencilState = &dsState;
 	pipelineCI.pColorBlendState = &colorBlendStateCI;
 	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
-	pipelineCI.layout = GetPipelineLayout("u1");
+	pipelineCI.layout = GetPipelineLayout("u1t1");
 	pipelineCI.renderPass = GetRenderPass("default");
 	pipelineCI.subpass = 0;
 	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
@@ -664,12 +677,17 @@ void ComputeFilterApp::PreparePrimitiveResource()
 void ComputeFilterApp::CreateSampleLayouts()
 {
 	// ディスクリプタセットレイアウト
-	std::array<VkDescriptorSetLayoutBinding, 1> dsLayoutBindings;
+	std::array<VkDescriptorSetLayoutBinding, 2> dsLayoutBindings;
 	dsLayoutBindings[0].binding = 0;
 	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	dsLayoutBindings[0].descriptorCount = 1;
 	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_ALL;
 	dsLayoutBindings[0].pImmutableSamplers = nullptr;
+	dsLayoutBindings[1].binding = 1;
+	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	dsLayoutBindings[1].descriptorCount = 1;
+	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_ALL;
+	dsLayoutBindings[1].pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
 	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -681,10 +699,10 @@ void ComputeFilterApp::CreateSampleLayouts()
 
 	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
 	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
-	RegisterLayout("u1", dsLayout);
+	RegisterLayout("u1t1", dsLayout);
 
 	// パイプラインレイアウト
-	dsLayout = GetDescriptorSetLayout("u1");
+	dsLayout = GetDescriptorSetLayout("u1t1");
 	VkPipelineLayoutCreateInfo layoutCI{};
 	layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	layoutCI.pNext = nullptr;
@@ -697,6 +715,6 @@ void ComputeFilterApp::CreateSampleLayouts()
 	VkPipelineLayout layout = VK_NULL_HANDLE;
 	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
 	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
-	RegisterLayout("u1", layout);
+	RegisterLayout("u1t1", layout);
 }
 
