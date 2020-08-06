@@ -1,14 +1,28 @@
 #version 450
 
-layout(location=0) in vec2 inUV;
+layout(local_size_x=1, local_size_y=1) in;
 
-layout(location=0) out vec4 outColor;
+// image2Dで読み込むためにはフォーマット指定を行う
+layout(set=0, binding=0, rgba8)
+uniform readonly image2D srcImage;
 
-layout(set=0, binding=1)
-uniform sampler2D texImage;
+layout(set=0, binding=1, rgba8)
+uniform image2D dstImage;
 
 void main()
 {
-	outColor = texture(texImage, inUV);
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+	if (pos.x < 1280 && pos.y < 720)
+	{
+		mat3 toSepia = mat3(
+			0.393, 0.349, 0.272,
+			0.769, 0.686, 0.534,
+			0.189, 0.168, 0.131
+		);
+
+		vec3 p = imageLoad(srcImage, pos).xyz;
+		vec3 sepiaColor = toSepia * p;
+		imageStore(dstImage, pos, vec4(sepiaColor, 1.0f));
+	}
 }
 

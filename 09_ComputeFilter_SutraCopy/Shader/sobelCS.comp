@@ -1,14 +1,42 @@
 #version 450
 
-layout(location=0) in vec2 inUV;
+layout(local_size_x=1, local_size_y=1) in;
 
-layout(location=0) out vec4 outColor;
+// image2Dで読み込むためにはフォーマット指定を行う
+layout(set=0, binding=0, rgba8)
+uniform readonly image2D srcImage;
 
-layout(set=0, binding=1)
-uniform sampler2D texImage;
+layout(set=0, binding=1, rgba8)
+uniform image2D dstImage;
 
 void main()
 {
-	outColor = texture(texImage, inUV);
+	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+	if (pos.x < 1280 && pos.y < 720)
+	{
+		int k = 0;
+		vec3 pixels[9];
+		
+		// 周囲9ピクセルの格納
+		for (int y = -1; y <= 1; ++y)
+		{
+			for (int x = -1; x <= 1; ++x)
+			{
+				ivec2 xy = ivec2(pos + ivec2(x, y));
+				pixels[k] = imageLoad(srcImage, xy).xyz;
+				k++;
+			}
+		}
+
+		// フィルタ計算
+		vec3 sobelH = pixels[0] * -1 + pixels[2] * 1
+					+ pixels[3] * -2 + pixels[5] * 2
+					+ pixels[6] * -1 + pixels[5] * 1;
+		vec3 sobelV = pixels[0] * -1 + pixels[1] * -2 + pixels[2] * -1
+					+ pixels[6] * 1 + pixels[7] * 2 + pixels[8] * 1;
+
+		vec4 color = vec4(sqrt(sobelH * sobelH + sobelV * sobelV), 1.0f);
+		imageStore(dstImage, pos, color);
+	}
 }
 

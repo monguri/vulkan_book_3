@@ -48,7 +48,11 @@ private:
 	std::vector<BufferObject> m_shaderUniforms;
 	std::vector<VkDescriptorSet> m_dsDrawTextures[2];
 
+	VkDescriptorSet m_dsWriteToTexture = VK_NULL_HANDLE;
+
 	VkPipeline m_pipeline = VK_NULL_HANDLE;
+	VkPipeline m_compSepiaPipeline = VK_NULL_HANDLE;
+	VkPipeline m_compSobelPipeline = VK_NULL_HANDLE;
 	ModelData m_quad, m_quad2;
 
 	int m_selectedFilter = 0;
@@ -65,5 +69,7 @@ private:
 	void PreparePrimitiveResource();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
+
+	VkImageMemoryBarrier CreateImageMemoryBarrier(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 };
 

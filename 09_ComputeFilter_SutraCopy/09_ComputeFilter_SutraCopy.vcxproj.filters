@@ -107,6 +107,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Shader\sepiaCS.comp">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\sobelCS.comp">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Shader\tessTCS.tesc" />

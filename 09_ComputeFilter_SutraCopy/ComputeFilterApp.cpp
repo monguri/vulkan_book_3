@@ -58,8 +58,10 @@ void ComputeFilterApp::Cleanup()
 	DestroyImage(m_srcBuffer);
 	DestroyImage(m_dstBuffer);
 
-	// CenterTeapot
 	vkDestroyPipeline(m_device, m_pipeline, nullptr);
+	vkDestroyPipeline(m_device, m_compSepiaPipeline, nullptr);
+	vkDestroyPipeline(m_device, m_compSobelPipeline, nullptr);
+
 
 	for (const BufferObject& ubo : m_shaderUniforms)
 	{
@@ -72,6 +74,8 @@ void ComputeFilterApp::Cleanup()
 		vkFreeDescriptorSets(m_device, m_descriptorPool, uint32_t(ds.size()), ds.data());
 		ds.clear();
 	}
+
+	vkFreeDescriptorSets(m_device, m_descriptorPool, 1, &m_dsWriteToTexture);
 
 	DestroyImage(m_depthBuffer);
 	uint32_t count = uint32_t(m_framebuffers.size());
@@ -174,6 +178,78 @@ void ComputeFilterApp::Render()
 	result = vkBeginCommandBuffer(command, &commandBI);
 	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
 
+	// テクスチャをコンピュートシェーダでアクセス可能にしておく
+	// TODO:本だと、この処理は先頭では行わず、メイン描画が終わってから次のフレーム用に行うが、
+	// それだと最初のフレームのために初期化時にこの処理をやっておかねばならず無駄なので、ここでは先頭で
+	// 行うようにする
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		0, // bufferMemoryBarrierCount
+		nullptr,
+		1, // imageMemoryBarrierCount
+		&CreateImageMemoryBarrier(m_srcBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
+	);
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		0, // bufferMemoryBarrierCount
+		nullptr,
+		1, // imageMemoryBarrierCount
+		&CreateImageMemoryBarrier(m_dstBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
+	);
+
+	// グラフィックスキューでコンピュートシェーダを走らせる場合はレンダーパスの外で実行する必要がある
+	const VkPipelineLayout& pipelineLayout = GetPipelineLayout("compute_filter");
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &m_dsWriteToTexture, 0, nullptr);
+	switch (m_selectedFilter)
+	{
+		case 0:
+			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_COMPUTE, m_compSepiaPipeline);
+			break;
+		case 1:
+			vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_COMPUTE, m_compSobelPipeline);
+			break;
+		default:
+			assert(false);
+			break;
+	}
+	vkCmdDispatch(command, 1280, 720, 1);
+
+	// 書き込んだ内容をテクスチャとしてフラグメントシェーダから参照するためのレイアウト変更
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		0, // bufferMemoryBarrierCount
+		nullptr,
+		1, // imageMemoryBarrierCount
+		&CreateImageMemoryBarrier(m_srcBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+	);
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		0, // bufferMemoryBarrierCount
+		nullptr,
+		1, // imageMemoryBarrierCount
+		&CreateImageMemoryBarrier(m_dstBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+	);
+
 	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
 
 	RenderToMain(command);
@@ -220,7 +296,6 @@ void ComputeFilterApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdSetScissor(command, 0, 1, &scissor);
 	vkCmdSetViewport(command, 0, 1, &viewport);
 
-	// 中央ティーポットの描画
 	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
 
 	VkDeviceSize offsets[] = {0};
@@ -324,7 +399,6 @@ void ComputeFilterApp::PrepareSceneResource()
 	ThrowIfFailed(result, "vkCreateSampler Failed.");
 
 	m_srcBuffer = Load2DTextureFromFile("image.png");
-	m_dstBuffer = Load2DTextureFromFile("image.png");
 }
 
 VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* fileName)
@@ -479,6 +553,121 @@ VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* f
 
 void ComputeFilterApp::PrepareComputeResource()
 {
+	// シェーダストレージバッファテクスチャの作成
+	int width = 1280, height = 720;
+	{
+		VkImageCreateInfo imageCI{};
+		imageCI.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCI.pNext = nullptr;
+		imageCI.flags = 0;
+		imageCI.imageType = VK_IMAGE_TYPE_2D;
+		imageCI.format = VK_FORMAT_R8G8B8A8_UNORM;
+		imageCI.extent.width = width;
+		imageCI.extent.height = height;
+		imageCI.extent.depth = 1;
+		imageCI.mipLevels = 1;
+		imageCI.arrayLayers = 1;
+		imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT; // コンピュートシェーダ用にシェーダストレージバッファ
+		imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		imageCI.queueFamilyIndexCount = 0;
+		imageCI.pQueueFamilyIndices = nullptr;
+		imageCI.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+		VkImage image = VK_NULL_HANDLE;
+		VkResult result = vkCreateImage(m_device, &imageCI, nullptr, &image);
+		ThrowIfFailed(result, "vkCreateImage Failed.");
+
+		VkMemoryRequirements reqs;
+		vkGetImageMemoryRequirements(m_device, image, &reqs);
+
+		VkMemoryAllocateInfo info{};
+		info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		info.pNext = nullptr;
+		info.allocationSize = reqs.size;
+		info.memoryTypeIndex = GetMemoryTypeIndex(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		VkDeviceMemory memory = VK_NULL_HANDLE;
+		result = vkAllocateMemory(m_device, &info, nullptr, &memory);
+		ThrowIfFailed(result, "vkAllocateMemory Failed.");
+		result = vkBindImageMemory(m_device, image, memory, 0);
+		ThrowIfFailed(result, "vkBindImageMemory Failed.");
+
+		VkImageAspectFlags imageAspect = VK_IMAGE_ASPECT_COLOR_BIT;
+
+		VkImageViewCreateInfo viewCI{};
+		viewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewCI.pNext = nullptr;
+		viewCI.flags = 0;
+		viewCI.image = image;
+		viewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewCI.format = imageCI.format;
+		viewCI.components = book_util::DefaultComponentMapping();
+		viewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewCI.subresourceRange.baseMipLevel = 0;
+		viewCI.subresourceRange.levelCount = 1;
+		viewCI.subresourceRange.baseArrayLayer = 0;
+		viewCI.subresourceRange.layerCount = 1;
+
+		VkImageView view = VK_NULL_HANDLE;
+		result = vkCreateImageView(m_device, &viewCI, nullptr, &view);
+		ThrowIfFailed(result, "vkCreateImageView Failed.");
+
+		m_dstBuffer.image = image;
+		m_dstBuffer.memory = memory;
+		m_dstBuffer.view = view;
+	}
+
+	// ディスクリプタセットの作成
+	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("compute_filter");
+	uint32_t imageCount = m_swapchain->GetImageCount();
+
+	m_dsWriteToTexture = AllocateDescriptorset(dsLayout);
+
+	VkDescriptorImageInfo srcImage{};
+	srcImage.sampler = m_texSampler; // サンプラはグラフィックスパイプラインのものと共通でよい
+	srcImage.imageView = m_srcBuffer.view;
+	srcImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // コンピュートシェーダ用
+
+	VkDescriptorImageInfo dstImage{};
+	dstImage.sampler = m_texSampler; // サンプラはグラフィックスパイプラインのものと共通でよい
+	dstImage.imageView = m_dstBuffer.view;
+	dstImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // コンピュートシェーダ用
+
+	std::vector<VkWriteDescriptorSet> writeDS =
+	{
+		book_util::CreateWriteDescriptorSet(m_dsWriteToTexture, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &srcImage), //コンピュートシェーダ用
+		book_util::CreateWriteDescriptorSet(m_dsWriteToTexture, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &dstImage) //コンピュートシェーダ用
+	};
+
+	vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
+
+
+	// パイプラインの作成
+	VkPipelineShaderStageCreateInfo computeStage = book_util::LoadShader(m_device, "sepiaCS.spv", VK_SHADER_STAGE_COMPUTE_BIT);
+
+	VkComputePipelineCreateInfo pipelineCI{};
+	pipelineCI.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineCI.pNext = nullptr;
+	pipelineCI.flags = 0;
+	pipelineCI.stage = computeStage;
+	pipelineCI.layout = GetPipelineLayout("compute_filter");
+	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineCI.basePipelineIndex = 0;
+
+	VkResult result = vkCreateComputePipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_compSepiaPipeline);
+	ThrowIfFailed(result, "vkCreateComputePipelines Failed.");
+
+	vkDestroyShaderModule(m_device, computeStage.module, nullptr);
+
+	computeStage = book_util::LoadShader(m_device, "sobelCS.spv", VK_SHADER_STAGE_COMPUTE_BIT);
+	pipelineCI.stage = computeStage;
+
+	result = vkCreateComputePipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_compSobelPipeline);
+	ThrowIfFailed(result, "vkCreateComputePipelines Failed.");
+
+	vkDestroyShaderModule(m_device, computeStage.module, nullptr);
 }
 
 void ComputeFilterApp::PreparePrimitiveResource()
@@ -717,5 +906,83 @@ void ComputeFilterApp::CreateSampleLayouts()
 	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
 	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
 	RegisterLayout("u1t1", layout);
+
+
+	// コンピュートシェーダ用のディスクリプタセットレイアウト
+	dsLayoutBindings[0].binding = 0;
+	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE; // シェーダストレージバッファテクスチャ
+	dsLayoutBindings[0].descriptorCount = 1;
+	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	dsLayoutBindings[0].pImmutableSamplers = nullptr;
+	dsLayoutBindings[1].binding = 1;
+	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE; // シェーダストレージバッファテクスチャ
+	dsLayoutBindings[1].descriptorCount = 1;
+	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	dsLayoutBindings[1].pImmutableSamplers = nullptr;
+
+	descSetLayoutCI.bindingCount = uint32_t(dsLayoutBindings.size());
+	descSetLayoutCI.pBindings = dsLayoutBindings.data();
+
+	result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
+	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
+	RegisterLayout("compute_filter", dsLayout);
+
+	// コンピュートシェーダ用のパイプラインレイアウト
+	dsLayout = GetDescriptorSetLayout("compute_filter");
+	layoutCI.setLayoutCount = 1;
+	layoutCI.pSetLayouts = &dsLayout;
+
+	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
+	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
+	RegisterLayout("compute_filter", layout);
+}
+
+VkImageMemoryBarrier ComputeFilterApp::CreateImageMemoryBarrier(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
+{
+	VkImageMemoryBarrier imgageLayoutDst{};
+	imgageLayoutDst.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imgageLayoutDst.pNext = nullptr;
+	imgageLayoutDst.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	imgageLayoutDst.oldLayout = oldLayout;
+	imgageLayoutDst.newLayout = newLayout;
+	imgageLayoutDst.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imgageLayoutDst.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imgageLayoutDst.image = image;
+	imgageLayoutDst.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imgageLayoutDst.subresourceRange.baseMipLevel = 0;
+	imgageLayoutDst.subresourceRange.levelCount = 1;
+	imgageLayoutDst.subresourceRange.baseArrayLayer = 0;
+	imgageLayoutDst.subresourceRange.layerCount = 1;
+
+	switch (oldLayout)
+	{
+		case VK_IMAGE_LAYOUT_UNDEFINED:
+			imgageLayoutDst.srcAccessMask = 0;
+			break;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			imgageLayoutDst.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			imgageLayoutDst.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		default:
+			assert(false);
+			break;
+	}
+
+	switch (newLayout)
+	{
+		case VK_IMAGE_LAYOUT_GENERAL:
+			imgageLayoutDst.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			imgageLayoutDst.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			break;
+		default:
+			assert(false);
+			break;
+	}
+
+	return imgageLayoutDst;
 }
 

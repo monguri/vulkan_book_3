@@ -170,6 +170,24 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <CustomBuild Include="Shader\sepiaCS.comp">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S comp %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S comp %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Compute Shader</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Compute Shader</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+    </CustomBuild>
+    <CustomBuild Include="Shader\sobelCS.comp">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S comp %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(VK_SDK_PATH)\Bin\glslangValidator.exe -V -S comp %(Identity) -o "$(ProjectDir)%(FileName).spv"</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compile Compute Shader</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compile Compute Shader</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)%(FileName).spv</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
