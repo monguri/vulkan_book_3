@@ -42,7 +42,7 @@ void ComputeFilterApp::Prepare()
 
 	PrepareSceneResource();
 	PrepareComputeResource();
-	PreparePrimitiveResource();
+	CreatePrimitiveResource();
 }
 
 void ComputeFilterApp::CreateSampleLayouts()
@@ -128,8 +128,8 @@ void ComputeFilterApp::Cleanup()
 
 	vkDestroySampler(m_device, m_texSampler, nullptr);
 
-	DestroyImage(m_srcBuffer);
-	DestroyImage(m_dstBuffer);
+	DestroyImage(m_sourceBuffer);
+	DestroyImage(m_destBuffer);
 
 	vkDestroyPipeline(m_device, m_pipeline, nullptr);
 	vkDestroyPipeline(m_device, m_compSepiaPipeline, nullptr);
@@ -232,7 +232,7 @@ void ComputeFilterApp::Render()
 		0, // bufferMemoryBarrierCount
 		nullptr,
 		1, // imageMemoryBarrierCount
-		&CreateImageMemoryBarrier(m_srcBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
+		&CreateImageMemoryBarrier(m_sourceBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
 	);
 	vkCmdPipelineBarrier(
 		command,
@@ -244,7 +244,7 @@ void ComputeFilterApp::Render()
 		0, // bufferMemoryBarrierCount
 		nullptr,
 		1, // imageMemoryBarrierCount
-		&CreateImageMemoryBarrier(m_dstBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
+		&CreateImageMemoryBarrier(m_destBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
 	);
 
 	// グラフィックスキューでコンピュートシェーダを走らせる場合はレンダーパスの外で実行する必要がある
@@ -277,7 +277,7 @@ void ComputeFilterApp::Render()
 		0, // bufferMemoryBarrierCount
 		nullptr,
 		1, // imageMemoryBarrierCount
-		&CreateImageMemoryBarrier(m_srcBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		&CreateImageMemoryBarrier(m_sourceBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 	);
 	vkCmdPipelineBarrier(
 		command,
@@ -289,7 +289,7 @@ void ComputeFilterApp::Render()
 		0, // bufferMemoryBarrierCount
 		nullptr,
 		1, // imageMemoryBarrierCount
-		&CreateImageMemoryBarrier(m_dstBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		&CreateImageMemoryBarrier(m_destBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 	);
 
 	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
@@ -399,7 +399,7 @@ bool ComputeFilterApp::OnSizeChanged(uint32_t width, uint32_t height)
 	return isResized;
 }
 
-void ComputeFilterApp::PreparePrimitiveResource()
+void ComputeFilterApp::CreatePrimitiveResource()
 {
 	using namespace glm;
 	std::vector<Vertex> vertices;
@@ -437,10 +437,10 @@ void ComputeFilterApp::PreparePrimitiveResource()
 
 	VkDescriptorImageInfo textureImage[2];
 	textureImage[0].sampler = m_texSampler;
-	textureImage[0].imageView = m_srcBuffer.view;
+	textureImage[0].imageView = m_sourceBuffer.view;
 	textureImage[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	textureImage[1].sampler = m_texSampler;
-	textureImage[1].imageView = m_dstBuffer.view;
+	textureImage[1].imageView = m_destBuffer.view;
 	textureImage[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	for (int type = 0; type < 2; ++type)
@@ -618,7 +618,7 @@ void ComputeFilterApp::PrepareSceneResource()
 	VkResult result = vkCreateSampler(m_device, &samplerCI, nullptr, &m_texSampler);
 	ThrowIfFailed(result, "vkCreateSampler Failed.");
 
-	m_srcBuffer = Load2DTextureFromFile("image.png");
+	m_sourceBuffer = Load2DTextureFromFile("image.png");
 }
 
 VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* fileName)
@@ -834,9 +834,9 @@ void ComputeFilterApp::PrepareComputeResource()
 		result = vkCreateImageView(m_device, &viewCI, nullptr, &view);
 		ThrowIfFailed(result, "vkCreateImageView Failed.");
 
-		m_dstBuffer.image = image;
-		m_dstBuffer.memory = memory;
-		m_dstBuffer.view = view;
+		m_destBuffer.image = image;
+		m_destBuffer.memory = memory;
+		m_destBuffer.view = view;
 	}
 
 	// ディスクリプタセットの作成
@@ -847,12 +847,12 @@ void ComputeFilterApp::PrepareComputeResource()
 
 	VkDescriptorImageInfo srcImage{};
 	srcImage.sampler = m_texSampler; // サンプラはグラフィックスパイプラインのものと共通でよい
-	srcImage.imageView = m_srcBuffer.view;
+	srcImage.imageView = m_sourceBuffer.view;
 	srcImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // コンピュートシェーダ用
 
 	VkDescriptorImageInfo dstImage{};
 	dstImage.sampler = m_texSampler; // サンプラはグラフィックスパイプラインのものと共通でよい
-	dstImage.imageView = m_dstBuffer.view;
+	dstImage.imageView = m_destBuffer.view;
 	dstImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL; // コンピュートシェーダ用
 
 	std::vector<VkWriteDescriptorSet> writeDS =

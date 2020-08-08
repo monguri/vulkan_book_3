@@ -54,8 +54,8 @@ private:
 
 	int m_selectedFilter = 0;
 
-	ImageObject m_srcBuffer;
-	ImageObject m_dstBuffer;
+	ImageObject m_sourceBuffer;
+	ImageObject m_destBuffer;
 
 	void CreateSampleLayouts();
 	void PrepareDepthbuffer();
@@ -63,7 +63,7 @@ private:
 	void PrepareSceneResource();
 	ImageObject Load2DTextureFromFile(const char* fileName);
 	void PrepareComputeResource();
-	void PreparePrimitiveResource();
+	void CreatePrimitiveResource();
 	void RenderToMain(const VkCommandBuffer& command);
 	void RenderHUD(const VkCommandBuffer& command);
 
