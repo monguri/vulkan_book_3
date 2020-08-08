@@ -7,7 +7,7 @@ layout(set=0, binding=0, rgba8)
 uniform readonly image2D srcImage;
 
 layout(set=0, binding=1, rgba8)
-uniform image2D dstImage;
+uniform writeonly image2D dstImage;
 
 void main()
 {
