@@ -319,7 +319,9 @@ void HelloGeometryShaderApp::PrepareTeapot()
 {
 	std::vector<TeapotModel::Vertex> vertices(std::begin(TeapotModel::TeapotVerticesPN), std::end(TeapotModel::TeapotVerticesPN));
 	std::vector<uint32_t> indices(std::begin(TeapotModel::TeapotIndices), std::end(TeapotModel::TeapotIndices));
-	m_teapot = CreateSimpleModel(vertices, indices);
+	// コンピュートシェーダで加工可能にする
+	bool isVBComputable = true;
+	m_teapot = CreateSimpleModel(vertices, indices, isVBComputable);
 
 	// ディスクリプタセット
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1");
