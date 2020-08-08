@@ -12,6 +12,8 @@
 
 #include <array>
 
+using namespace std;
+
 ComputeFilterApp::ComputeFilterApp()
 {
 	m_camera.SetLookAt(
@@ -401,39 +403,9 @@ bool ComputeFilterApp::OnSizeChanged(uint32_t width, uint32_t height)
 
 void ComputeFilterApp::CreatePrimitiveResource()
 {
-	using namespace glm;
-	std::vector<Vertex> vertices;
-	const float OFFSET = 10.0f;
-
-	// テクスチャを貼り付ける矩形の作成
-	vertices = {
-		{vec3(-480.0f - OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
-		{vec3(0.0f - OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
-		{vec3(-480.0f - OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
-		{vec3(0.0f - OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
-	};
-
-	std::vector<uint32_t> indices = {
-		0, 1, 2, 3
-	};
-
-	m_quad = CreateSimpleModel(vertices, indices);
-
-	vertices = {
-		{vec3(+480.0f + OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
-		{vec3(0.0f + OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
-		{vec3(+480.0f + OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
-		{vec3(0.0f + OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
-	};
-
-	m_quad2 = CreateSimpleModel(vertices, indices);
-
 	// ディスクリプタセットの作成
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1t1");
 	uint32_t imageCount = m_swapchain->GetImageCount();
-
-	uint32_t bufferSize = uint32_t(sizeof(ShaderParameters));
-	m_shaderUniforms = CreateUniformBuffers(bufferSize, imageCount);
 
 	VkDescriptorImageInfo textureImage[2];
 	textureImage[0].sampler = m_texSampler;
@@ -621,7 +593,7 @@ void ComputeFilterApp::PrepareSceneResource()
 	m_sourceBuffer = Load2DTextureFromFile("image.png");
 }
 
-VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* fileName)
+VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* fileName, VkImageLayout layout)
 {
 	int width, height = 0;
 	stbi_uc* rawimage = { nullptr };
@@ -743,7 +715,7 @@ VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* f
 	imb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	imb.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	imb.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	imb.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imb.newLayout = layout;
 
 	vkCmdPipelineBarrier(
 		command,
@@ -773,6 +745,33 @@ VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* f
 
 void ComputeFilterApp::PrepareComputeResource()
 {
+	using namespace glm;
+	std::vector<Vertex> vertices;
+	const float OFFSET = 10.0f;
+
+	// テクスチャを貼り付ける矩形の作成
+	vertices = {
+		{vec3(-480.0f - OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
+		{vec3(0.0f - OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
+		{vec3(-480.0f - OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
+		{vec3(0.0f - OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
+	};
+
+	std::vector<uint32_t> indices = {
+		0, 1, 2, 3
+	};
+
+	m_quad = CreateSimpleModel(vertices, indices);
+
+	vertices = {
+		{vec3(+480.0f + OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
+		{vec3(0.0f + OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
+		{vec3(+480.0f + OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
+		{vec3(0.0f + OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
+	};
+
+	m_quad2 = CreateSimpleModel(vertices, indices);
+
 	// シェーダストレージバッファテクスチャの作成
 	int width = 1280, height = 720;
 	{
@@ -839,10 +838,12 @@ void ComputeFilterApp::PrepareComputeResource()
 		m_destBuffer.view = view;
 	}
 
+	uint32_t imageCount = m_swapchain->GetImageCount();
+	uint32_t bufferSize = uint32_t(sizeof(ShaderParameters));
+	m_shaderUniforms = CreateUniformBuffers(bufferSize, imageCount);
+
 	// ディスクリプタセットの作成
 	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("compute_filter");
-	uint32_t imageCount = m_swapchain->GetImageCount();
-
 	m_dsWriteToTexture = AllocateDescriptorset(dsLayout);
 
 	VkDescriptorImageInfo srcImage{};
@@ -862,7 +863,6 @@ void ComputeFilterApp::PrepareComputeResource()
 	};
 
 	vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
-
 
 	// パイプラインの作成
 	VkPipelineShaderStageCreateInfo computeStage = book_util::LoadShader(m_device, "sepiaCS.spv", VK_SHADER_STAGE_COMPUTE_BIT);

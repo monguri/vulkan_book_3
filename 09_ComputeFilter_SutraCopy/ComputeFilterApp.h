@@ -61,12 +61,19 @@ private:
 	void PrepareDepthbuffer();
 	void PrepareFramebuffers();
 	void PrepareSceneResource();
-	ImageObject Load2DTextureFromFile(const char* fileName);
+	ImageObject Load2DTextureFromFile(const char* fileName, VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	void PrepareComputeResource();
 	void CreatePrimitiveResource();
 	void RenderToMain(const VkCommandBuffer& command);
+#if 1
 	void RenderHUD(const VkCommandBuffer& command);
+#else
+	void RenderHUD(VkCommandBuffer command);
+#endif
 
+#if 1
+	BufferObject CreateStorageBuffer(size_t bufferSize, VkBufferUsageFlags usage, VkMemoryPropertyFlags props);
+#endif
 	VkImageMemoryBarrier CreateImageMemoryBarrier(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 };
 
