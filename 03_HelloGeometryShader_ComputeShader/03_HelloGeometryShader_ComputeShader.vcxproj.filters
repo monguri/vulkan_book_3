@@ -19,6 +19,9 @@
     <Filter Include="ヘッダー ファイル\imgui">
       <UniqueIdentifier>{299e0c1f-c007-4785-94e1-52c6a17ee36a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{67e76891-f155-4113-a999-81878ee46f04}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp">
@@ -95,5 +98,31 @@
     <ClInclude Include="..\common\imgui\examples\imgui_impl_vulkan.h">
       <Filter>ヘッダー ファイル\imgui</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\drawNormalFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\drawNormalGS.geom">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\drawNormalVS.vert">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\flatFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\flatGS.geom">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\flatVS.vert">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\shaderFS.frag">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\shaderVS.vert">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
 </Project>
