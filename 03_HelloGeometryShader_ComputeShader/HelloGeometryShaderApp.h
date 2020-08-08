@@ -52,6 +52,7 @@ private:
 	void PrepareFramebuffers();
 	void PrepareTeapot();
 	void CreatePipeline();
+	void PrepareComputeResource();
 	void RenderHUD(const VkCommandBuffer& command);
 
 	enum DrawMode

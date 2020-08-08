@@ -38,6 +38,8 @@ void HelloGeometryShaderApp::Prepare()
 	PrepareTeapot();
 
 	CreatePipeline();
+
+	PrepareComputeResource();
 }
 
 void HelloGeometryShaderApp::Cleanup()
@@ -595,5 +597,43 @@ void HelloGeometryShaderApp::CreateSampleLayouts()
 	result = vkCreatePipelineLayout(m_device, &pipelineLayoutCI, nullptr, &layout);
 	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
 	RegisterLayout("u1", layout);
+}
+
+void HelloGeometryShaderApp::PrepareComputeResource()
+{
+	// ディスクリプタセットレイアウト
+	std::array<VkDescriptorSetLayoutBinding, 1> dsLayoutBindings;
+	dsLayoutBindings[0].binding = 0;
+	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	dsLayoutBindings[0].descriptorCount = 1;
+	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	dsLayoutBindings[0].pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
+	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descSetLayoutCI.pNext = nullptr;
+	descSetLayoutCI.bindingCount = uint32_t(dsLayoutBindings.size());
+	descSetLayoutCI.pBindings = dsLayoutBindings.data();
+
+	VkDescriptorSetLayout dsLayout = VK_NULL_HANDLE;
+
+	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
+	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
+	RegisterLayout("compute", dsLayout);
+
+	// パイプラインレイアウト
+	VkPipelineLayoutCreateInfo layoutCI{};
+	layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutCI.pNext = nullptr;
+	layoutCI.flags = 0;
+	layoutCI.setLayoutCount = 1;
+	layoutCI.pSetLayouts = &dsLayout;
+	layoutCI.pushConstantRangeCount = 0;
+	layoutCI.pPushConstantRanges = nullptr;
+
+	VkPipelineLayout layout = VK_NULL_HANDLE;
+	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
+	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
+	RegisterLayout("compute", layout);
 }
 
