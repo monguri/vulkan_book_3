@@ -54,6 +54,9 @@
     <ClCompile Include="..\common\imgui\examples\imgui_impl_vulkan.cpp">
       <Filter>ソース ファイル\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="..\common\imgui\imgui_draw.cpp">
+      <Filter>ソース ファイル\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -124,5 +127,6 @@
     <None Include="Shader\shaderVS.vert">
       <Filter>Shader</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
