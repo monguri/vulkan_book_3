@@ -45,6 +45,79 @@ void ComputeFilterApp::Prepare()
 	PreparePrimitiveResource();
 }
 
+void ComputeFilterApp::CreateSampleLayouts()
+{
+	// ディスクリプタセットレイアウト
+	std::array<VkDescriptorSetLayoutBinding, 2> dsLayoutBindings;
+	dsLayoutBindings[0].binding = 0;
+	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	dsLayoutBindings[0].descriptorCount = 1;
+	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_ALL;
+	dsLayoutBindings[0].pImmutableSamplers = nullptr;
+	dsLayoutBindings[1].binding = 1;
+	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	dsLayoutBindings[1].descriptorCount = 1;
+	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_ALL;
+	dsLayoutBindings[1].pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
+	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	descSetLayoutCI.pNext = nullptr;
+	descSetLayoutCI.bindingCount = uint32_t(dsLayoutBindings.size());
+	descSetLayoutCI.pBindings = dsLayoutBindings.data();
+
+	VkDescriptorSetLayout dsLayout = VK_NULL_HANDLE;
+
+	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
+	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
+	RegisterLayout("u1t1", dsLayout);
+
+	// パイプラインレイアウト
+	dsLayout = GetDescriptorSetLayout("u1t1");
+	VkPipelineLayoutCreateInfo layoutCI{};
+	layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutCI.pNext = nullptr;
+	layoutCI.flags = 0;
+	layoutCI.setLayoutCount = 1;
+	layoutCI.pSetLayouts = &dsLayout;
+	layoutCI.pushConstantRangeCount = 0;
+	layoutCI.pPushConstantRanges = nullptr;
+
+	VkPipelineLayout layout = VK_NULL_HANDLE;
+	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
+	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
+	RegisterLayout("u1t1", layout);
+
+
+	// コンピュートシェーダ用のディスクリプタセットレイアウト
+	dsLayoutBindings[0].binding = 0;
+	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE; // シェーダストレージバッファテクスチャ
+	dsLayoutBindings[0].descriptorCount = 1;
+	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	dsLayoutBindings[0].pImmutableSamplers = nullptr;
+	dsLayoutBindings[1].binding = 1;
+	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE; // シェーダストレージバッファテクスチャ
+	dsLayoutBindings[1].descriptorCount = 1;
+	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	dsLayoutBindings[1].pImmutableSamplers = nullptr;
+
+	descSetLayoutCI.bindingCount = uint32_t(dsLayoutBindings.size());
+	descSetLayoutCI.pBindings = dsLayoutBindings.data();
+
+	result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
+	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
+	RegisterLayout("compute_filter", dsLayout);
+
+	// コンピュートシェーダ用のパイプラインレイアウト
+	dsLayout = GetDescriptorSetLayout("compute_filter");
+	layoutCI.setLayoutCount = 1;
+	layoutCI.pSetLayouts = &dsLayout;
+
+	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
+	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
+	RegisterLayout("compute_filter", layout);
+}
+
 void ComputeFilterApp::Cleanup()
 {
 	DestroyBuffer(m_quad.resVertexBuffer);
@@ -88,39 +161,6 @@ void ComputeFilterApp::Cleanup()
 		DestroyFence(c.fence);
 	}
 	m_commandBuffers.clear();
-}
-
-bool ComputeFilterApp::OnMouseButtonDown(int button)
-{
-	if (VulkanAppBase::OnMouseButtonDown(button))
-	{
-		return true;
-	}
-
-	m_camera.OnMouseButtonDown(button);
-	return true;
-}
-
-bool ComputeFilterApp::OnMouseButtonUp(int button)
-{
-	if (VulkanAppBase::OnMouseButtonUp(button))
-	{
-		return true;
-	}
-
-	m_camera.OnMouseButtonUp();
-	return true;
-}
-
-bool ComputeFilterApp::OnMouseMove(int dx, int dy)
-{
-	if (VulkanAppBase::OnMouseMove(dx, dy))
-	{
-		return true;
-	}
-
-	m_camera.OnMouseMove(dx, dy);
-	return true;
 }
 
 void ComputeFilterApp::Render()
@@ -222,7 +262,9 @@ void ComputeFilterApp::Render()
 			assert(false);
 			break;
 	}
-	vkCmdDispatch(command, 1280, 720, 1);
+	int groupX = 1280 / 16 + 1;
+	int groupY = 720 / 16 + 1;
+	vkCmdDispatch(command, groupX, groupY, 1);
 
 	// 書き込んだ内容をテクスチャとしてフラグメントシェーダから参照するためのレイアウト変更
 	vkCmdPipelineBarrier(
@@ -312,22 +354,6 @@ void ComputeFilterApp::RenderToMain(const VkCommandBuffer& command)
 	vkCmdDrawIndexed(command, m_quad2.indexCount, 1, 0, 0, 0);
 }
 
-void ComputeFilterApp::RenderHUD(const VkCommandBuffer& command)
-{
-	ImGui_ImplVulkan_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-
-	// ImGuiウィジェットを描画する
-	ImGui::Begin("Information");
-	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
-	ImGui::Combo("Filter", &m_selectedFilter, "Sepia Filter\0Sobel Filter\0\0");
-	ImGui::End();
-
-	ImGui::Render();
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
-}
-
 void ComputeFilterApp::PrepareDepthbuffer()
 {
 	// デプスバッファを準備する
@@ -371,6 +397,200 @@ bool ComputeFilterApp::OnSizeChanged(uint32_t width, uint32_t height)
 	}
 
 	return isResized;
+}
+
+void ComputeFilterApp::PreparePrimitiveResource()
+{
+	using namespace glm;
+	std::vector<Vertex> vertices;
+	const float OFFSET = 10.0f;
+
+	// テクスチャを貼り付ける矩形の作成
+	vertices = {
+		{vec3(-480.0f - OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
+		{vec3(0.0f - OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
+		{vec3(-480.0f - OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
+		{vec3(0.0f - OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
+	};
+
+	std::vector<uint32_t> indices = {
+		0, 1, 2, 3
+	};
+
+	m_quad = CreateSimpleModel(vertices, indices);
+
+	vertices = {
+		{vec3(+480.0f + OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
+		{vec3(0.0f + OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
+		{vec3(+480.0f + OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
+		{vec3(0.0f + OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
+	};
+
+	m_quad2 = CreateSimpleModel(vertices, indices);
+
+	// ディスクリプタセットの作成
+	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1t1");
+	uint32_t imageCount = m_swapchain->GetImageCount();
+
+	uint32_t bufferSize = uint32_t(sizeof(ShaderParameters));
+	m_shaderUniforms = CreateUniformBuffers(bufferSize, imageCount);
+
+	VkDescriptorImageInfo textureImage[2];
+	textureImage[0].sampler = m_texSampler;
+	textureImage[0].imageView = m_srcBuffer.view;
+	textureImage[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	textureImage[1].sampler = m_texSampler;
+	textureImage[1].imageView = m_dstBuffer.view;
+	textureImage[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	for (int type = 0; type < 2; ++type)
+	{
+		m_dsDrawTextures[type].resize(imageCount);
+
+		for (uint32_t i = 0; i < imageCount; ++i)
+		{
+			const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
+			m_dsDrawTextures[type][i] = ds;
+
+			VkDescriptorBufferInfo bufferInfo{};
+			bufferInfo.buffer = m_shaderUniforms[i].buffer;
+			bufferInfo.offset = 0;
+			bufferInfo.range = VK_WHOLE_SIZE;
+
+			std::vector<VkWriteDescriptorSet> writeDS =
+			{
+				book_util::CreateWriteDescriptorSet(ds, 0, &bufferInfo),
+				book_util::CreateWriteDescriptorSet(ds, 1, &textureImage[type])
+			};
+
+			vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
+		}
+	}
+
+	// 頂点の入力の設定
+	uint32_t stride = uint32_t(sizeof(Vertex));
+	VkVertexInputBindingDescription vibDesc{};
+	vibDesc.binding = 0;
+	vibDesc.stride = stride;
+	vibDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	std::array<VkVertexInputAttributeDescription, 2> inputAttribs{};
+	inputAttribs[0].location = 0;
+	inputAttribs[0].binding = 0;
+	inputAttribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	inputAttribs[0].offset = offsetof(Vertex, Position);
+	inputAttribs[1].location = 1;
+	inputAttribs[1].binding = 0;
+	inputAttribs[1].format = VK_FORMAT_R32G32_SFLOAT;
+	inputAttribs[1].offset = offsetof(Vertex, UV);
+
+	VkPipelineVertexInputStateCreateInfo pipelineVisCI{};
+	pipelineVisCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	pipelineVisCI.pNext = nullptr;
+	pipelineVisCI.flags = 0;
+	pipelineVisCI.vertexBindingDescriptionCount = 1;
+	pipelineVisCI.pVertexBindingDescriptions = &vibDesc;
+	pipelineVisCI.vertexAttributeDescriptionCount = uint32_t(inputAttribs.size());
+	pipelineVisCI.pVertexAttributeDescriptions = inputAttribs.data();
+
+	const VkPipelineColorBlendAttachmentState& blendAttachmentState = book_util::GetOpaqueColorBlendAttachmentState();
+
+	VkPipelineColorBlendStateCreateInfo colorBlendStateCI{};
+	colorBlendStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	colorBlendStateCI.pNext = nullptr;
+	colorBlendStateCI.flags = 0;
+	colorBlendStateCI.logicOpEnable = VK_FALSE;
+	colorBlendStateCI.logicOp = VK_LOGIC_OP_CLEAR;
+	colorBlendStateCI.attachmentCount = 1;
+	colorBlendStateCI.pAttachments = &blendAttachmentState;
+	colorBlendStateCI.blendConstants[0] = 0.0f;
+	colorBlendStateCI.blendConstants[1] = 0.0f;
+	colorBlendStateCI.blendConstants[2] = 0.0f;
+	colorBlendStateCI.blendConstants[3] = 0.0f;
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCI{};
+	inputAssemblyCI.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyCI.pNext = nullptr;
+	inputAssemblyCI.flags = 0;
+	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+	inputAssemblyCI.primitiveRestartEnable = VK_FALSE;
+
+	VkPipelineMultisampleStateCreateInfo multisampleCI{};
+	multisampleCI.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampleCI.pNext = nullptr;
+	multisampleCI.flags = 0;
+	multisampleCI.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampleCI.sampleShadingEnable = VK_FALSE;
+	multisampleCI.minSampleShading = 0.0f;
+	multisampleCI.pSampleMask = nullptr;
+	multisampleCI.alphaToCoverageEnable = VK_FALSE;
+	multisampleCI.alphaToOneEnable = VK_FALSE;
+	
+	const VkExtent2D& extentBackBuffer = m_swapchain->GetSurfaceExtent();
+	const VkViewport& viewport = book_util::GetViewportFlipped(float(extentBackBuffer.width), float(extentBackBuffer.height));
+
+	VkRect2D scissor{};
+	scissor.offset.x = 0;
+	scissor.offset.y = 0;
+	scissor.extent = extentBackBuffer;
+
+	VkPipelineViewportStateCreateInfo viewportStateCI{};
+	viewportStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewportStateCI.pNext = nullptr;
+	viewportStateCI.flags = 0;
+	viewportStateCI.viewportCount = 1;
+	viewportStateCI.pViewports = &viewport;
+	viewportStateCI.scissorCount = 1;
+	viewportStateCI.pScissors = &scissor;
+
+	const VkPipelineRasterizationStateCreateInfo& rasterizerState = book_util::GetDefaultRasterizerState();
+
+	const VkPipelineDepthStencilStateCreateInfo& dsState = book_util::GetDefaultDepthStencilState();
+
+	// DynamicState
+	std::vector<VkDynamicState> dynamicStates{
+		VK_DYNAMIC_STATE_SCISSOR,
+		VK_DYNAMIC_STATE_VIEWPORT
+	};
+	VkPipelineDynamicStateCreateInfo pipelineDynamicStateCI{};
+	pipelineDynamicStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	pipelineDynamicStateCI.pNext = nullptr;
+	pipelineDynamicStateCI.flags = 0;
+	pipelineDynamicStateCI.dynamicStateCount = uint32_t(dynamicStates.size());
+	pipelineDynamicStateCI.pDynamicStates = dynamicStates.data();
+
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
+	{
+		book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
+		book_util::LoadShader(m_device, "shaderFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
+	};
+
+	// パイプライン構築
+	VkGraphicsPipelineCreateInfo pipelineCI{};
+	pipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineCI.pNext = nullptr;
+	pipelineCI.flags = 0;
+	pipelineCI.stageCount = uint32_t(shaderStages.size());
+	pipelineCI.pStages = shaderStages.data();
+	pipelineCI.pVertexInputState = &pipelineVisCI;
+	pipelineCI.pInputAssemblyState = &inputAssemblyCI;
+	pipelineCI.pTessellationState = nullptr;
+	pipelineCI.pViewportState = &viewportStateCI;
+	pipelineCI.pRasterizationState = &rasterizerState;
+	pipelineCI.pMultisampleState = &multisampleCI;
+	pipelineCI.pDepthStencilState = &dsState;
+	pipelineCI.pColorBlendState = &colorBlendStateCI;
+	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
+	pipelineCI.layout = GetPipelineLayout("u1t1");
+	pipelineCI.renderPass = GetRenderPass("default");
+	pipelineCI.subpass = 0;
+	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineCI.basePipelineIndex = 0;
+
+	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_pipeline);
+	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
+
+	book_util::DestroyShaderModules(m_device, shaderStages);
 }
 
 void ComputeFilterApp::PrepareSceneResource()
@@ -670,271 +890,20 @@ void ComputeFilterApp::PrepareComputeResource()
 	vkDestroyShaderModule(m_device, computeStage.module, nullptr);
 }
 
-void ComputeFilterApp::PreparePrimitiveResource()
+void ComputeFilterApp::RenderHUD(const VkCommandBuffer& command)
 {
-	using namespace glm;
-	std::vector<Vertex> vertices;
-	const float OFFSET = 10.0f;
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
 
-	// テクスチャを貼り付ける矩形の作成
-	vertices = {
-		{vec3(-480.0f - OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
-		{vec3(0.0f - OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
-		{vec3(-480.0f - OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
-		{vec3(0.0f - OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
-	};
+	// ImGuiウィジェットを描画する
+	ImGui::Begin("Information");
+	ImGui::Text("Framerate %.1f FPS", ImGui::GetIO().Framerate);
+	ImGui::Combo("Filter", &m_selectedFilter, "Sepia Filter\0Sobel Filter\0\0");
+	ImGui::End();
 
-	std::vector<uint32_t> indices = {
-		0, 1, 2, 3
-	};
-
-	m_quad = CreateSimpleModel(vertices, indices);
-
-	vertices = {
-		{vec3(+480.0f + OFFSET, -135.0f, 0.0f), vec2(1.0f, 1.0f)},
-		{vec3(0.0f + OFFSET, -135.0f, 0.0f), vec2(0.0f, 1.0f)},
-		{vec3(+480.0f + OFFSET, 135.0f, 0.0f), vec2(1.0f, 0.0f)},
-		{vec3(0.0f + OFFSET, 135.0f, 0.0f), vec2(0.0f, 0.0f)},
-	};
-
-	m_quad2 = CreateSimpleModel(vertices, indices);
-
-	// ディスクリプタセットの作成
-	const VkDescriptorSetLayout& dsLayout = GetDescriptorSetLayout("u1t1");
-	uint32_t imageCount = m_swapchain->GetImageCount();
-
-	uint32_t bufferSize = uint32_t(sizeof(ShaderParameters));
-	m_shaderUniforms = CreateUniformBuffers(bufferSize, imageCount);
-
-	VkDescriptorImageInfo textureImage[2];
-	textureImage[0].sampler = m_texSampler;
-	textureImage[0].imageView = m_srcBuffer.view;
-	textureImage[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	textureImage[1].sampler = m_texSampler;
-	textureImage[1].imageView = m_dstBuffer.view;
-	textureImage[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	for (int type = 0; type < 2; ++type)
-	{
-		m_dsDrawTextures[type].resize(imageCount);
-
-		for (uint32_t i = 0; i < imageCount; ++i)
-		{
-			const VkDescriptorSet& ds = AllocateDescriptorset(dsLayout);
-			m_dsDrawTextures[type][i] = ds;
-
-			VkDescriptorBufferInfo bufferInfo{};
-			bufferInfo.buffer = m_shaderUniforms[i].buffer;
-			bufferInfo.offset = 0;
-			bufferInfo.range = VK_WHOLE_SIZE;
-
-			std::vector<VkWriteDescriptorSet> writeDS =
-			{
-				book_util::CreateWriteDescriptorSet(ds, 0, &bufferInfo),
-				book_util::CreateWriteDescriptorSet(ds, 1, &textureImage[type])
-			};
-
-			vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
-		}
-	}
-
-	// 頂点の入力の設定
-	uint32_t stride = uint32_t(sizeof(Vertex));
-	VkVertexInputBindingDescription vibDesc{};
-	vibDesc.binding = 0;
-	vibDesc.stride = stride;
-	vibDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-	std::array<VkVertexInputAttributeDescription, 2> inputAttribs{};
-	inputAttribs[0].location = 0;
-	inputAttribs[0].binding = 0;
-	inputAttribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	inputAttribs[0].offset = offsetof(Vertex, Position);
-	inputAttribs[1].location = 1;
-	inputAttribs[1].binding = 0;
-	inputAttribs[1].format = VK_FORMAT_R32G32_SFLOAT;
-	inputAttribs[1].offset = offsetof(Vertex, UV);
-
-	VkPipelineVertexInputStateCreateInfo pipelineVisCI{};
-	pipelineVisCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	pipelineVisCI.pNext = nullptr;
-	pipelineVisCI.flags = 0;
-	pipelineVisCI.vertexBindingDescriptionCount = 1;
-	pipelineVisCI.pVertexBindingDescriptions = &vibDesc;
-	pipelineVisCI.vertexAttributeDescriptionCount = uint32_t(inputAttribs.size());
-	pipelineVisCI.pVertexAttributeDescriptions = inputAttribs.data();
-
-	const VkPipelineColorBlendAttachmentState& blendAttachmentState = book_util::GetOpaqueColorBlendAttachmentState();
-
-	VkPipelineColorBlendStateCreateInfo colorBlendStateCI{};
-	colorBlendStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	colorBlendStateCI.pNext = nullptr;
-	colorBlendStateCI.flags = 0;
-	colorBlendStateCI.logicOpEnable = VK_FALSE;
-	colorBlendStateCI.logicOp = VK_LOGIC_OP_CLEAR;
-	colorBlendStateCI.attachmentCount = 1;
-	colorBlendStateCI.pAttachments = &blendAttachmentState;
-	colorBlendStateCI.blendConstants[0] = 0.0f;
-	colorBlendStateCI.blendConstants[1] = 0.0f;
-	colorBlendStateCI.blendConstants[2] = 0.0f;
-	colorBlendStateCI.blendConstants[3] = 0.0f;
-
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCI{};
-	inputAssemblyCI.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssemblyCI.pNext = nullptr;
-	inputAssemblyCI.flags = 0;
-	inputAssemblyCI.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-	inputAssemblyCI.primitiveRestartEnable = VK_FALSE;
-
-	VkPipelineMultisampleStateCreateInfo multisampleCI{};
-	multisampleCI.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampleCI.pNext = nullptr;
-	multisampleCI.flags = 0;
-	multisampleCI.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	multisampleCI.sampleShadingEnable = VK_FALSE;
-	multisampleCI.minSampleShading = 0.0f;
-	multisampleCI.pSampleMask = nullptr;
-	multisampleCI.alphaToCoverageEnable = VK_FALSE;
-	multisampleCI.alphaToOneEnable = VK_FALSE;
-	
-	const VkExtent2D& extentBackBuffer = m_swapchain->GetSurfaceExtent();
-	const VkViewport& viewport = book_util::GetViewportFlipped(float(extentBackBuffer.width), float(extentBackBuffer.height));
-
-	VkRect2D scissor{};
-	scissor.offset.x = 0;
-	scissor.offset.y = 0;
-	scissor.extent = extentBackBuffer;
-
-	VkPipelineViewportStateCreateInfo viewportStateCI{};
-	viewportStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewportStateCI.pNext = nullptr;
-	viewportStateCI.flags = 0;
-	viewportStateCI.viewportCount = 1;
-	viewportStateCI.pViewports = &viewport;
-	viewportStateCI.scissorCount = 1;
-	viewportStateCI.pScissors = &scissor;
-
-	const VkPipelineRasterizationStateCreateInfo& rasterizerState = book_util::GetDefaultRasterizerState();
-
-	const VkPipelineDepthStencilStateCreateInfo& dsState = book_util::GetDefaultDepthStencilState();
-
-	// DynamicState
-	std::vector<VkDynamicState> dynamicStates{
-		VK_DYNAMIC_STATE_SCISSOR,
-		VK_DYNAMIC_STATE_VIEWPORT
-	};
-	VkPipelineDynamicStateCreateInfo pipelineDynamicStateCI{};
-	pipelineDynamicStateCI.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	pipelineDynamicStateCI.pNext = nullptr;
-	pipelineDynamicStateCI.flags = 0;
-	pipelineDynamicStateCI.dynamicStateCount = uint32_t(dynamicStates.size());
-	pipelineDynamicStateCI.pDynamicStates = dynamicStates.data();
-
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages
-	{
-		book_util::LoadShader(m_device, "shaderVS.spv", VK_SHADER_STAGE_VERTEX_BIT),
-		book_util::LoadShader(m_device, "shaderFS.spv", VK_SHADER_STAGE_FRAGMENT_BIT),
-	};
-
-	// パイプライン構築
-	VkGraphicsPipelineCreateInfo pipelineCI{};
-	pipelineCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineCI.pNext = nullptr;
-	pipelineCI.flags = 0;
-	pipelineCI.stageCount = uint32_t(shaderStages.size());
-	pipelineCI.pStages = shaderStages.data();
-	pipelineCI.pVertexInputState = &pipelineVisCI;
-	pipelineCI.pInputAssemblyState = &inputAssemblyCI;
-	pipelineCI.pTessellationState = nullptr;
-	pipelineCI.pViewportState = &viewportStateCI;
-	pipelineCI.pRasterizationState = &rasterizerState;
-	pipelineCI.pMultisampleState = &multisampleCI;
-	pipelineCI.pDepthStencilState = &dsState;
-	pipelineCI.pColorBlendState = &colorBlendStateCI;
-	pipelineCI.pDynamicState = &pipelineDynamicStateCI;
-	pipelineCI.layout = GetPipelineLayout("u1t1");
-	pipelineCI.renderPass = GetRenderPass("default");
-	pipelineCI.subpass = 0;
-	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
-	pipelineCI.basePipelineIndex = 0;
-
-	VkResult result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_pipeline);
-	ThrowIfFailed(result, "vkCreateGraphicsPipelines Failed.");
-
-	book_util::DestroyShaderModules(m_device, shaderStages);
-}
-
-void ComputeFilterApp::CreateSampleLayouts()
-{
-	// ディスクリプタセットレイアウト
-	std::array<VkDescriptorSetLayoutBinding, 2> dsLayoutBindings;
-	dsLayoutBindings[0].binding = 0;
-	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	dsLayoutBindings[0].descriptorCount = 1;
-	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_ALL;
-	dsLayoutBindings[0].pImmutableSamplers = nullptr;
-	dsLayoutBindings[1].binding = 1;
-	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dsLayoutBindings[1].descriptorCount = 1;
-	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_ALL;
-	dsLayoutBindings[1].pImmutableSamplers = nullptr;
-
-	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
-	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descSetLayoutCI.pNext = nullptr;
-	descSetLayoutCI.bindingCount = uint32_t(dsLayoutBindings.size());
-	descSetLayoutCI.pBindings = dsLayoutBindings.data();
-
-	VkDescriptorSetLayout dsLayout = VK_NULL_HANDLE;
-
-	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
-	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
-	RegisterLayout("u1t1", dsLayout);
-
-	// パイプラインレイアウト
-	dsLayout = GetDescriptorSetLayout("u1t1");
-	VkPipelineLayoutCreateInfo layoutCI{};
-	layoutCI.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layoutCI.pNext = nullptr;
-	layoutCI.flags = 0;
-	layoutCI.setLayoutCount = 1;
-	layoutCI.pSetLayouts = &dsLayout;
-	layoutCI.pushConstantRangeCount = 0;
-	layoutCI.pPushConstantRanges = nullptr;
-
-	VkPipelineLayout layout = VK_NULL_HANDLE;
-	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
-	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
-	RegisterLayout("u1t1", layout);
-
-
-	// コンピュートシェーダ用のディスクリプタセットレイアウト
-	dsLayoutBindings[0].binding = 0;
-	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE; // シェーダストレージバッファテクスチャ
-	dsLayoutBindings[0].descriptorCount = 1;
-	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-	dsLayoutBindings[0].pImmutableSamplers = nullptr;
-	dsLayoutBindings[1].binding = 1;
-	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE; // シェーダストレージバッファテクスチャ
-	dsLayoutBindings[1].descriptorCount = 1;
-	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-	dsLayoutBindings[1].pImmutableSamplers = nullptr;
-
-	descSetLayoutCI.bindingCount = uint32_t(dsLayoutBindings.size());
-	descSetLayoutCI.pBindings = dsLayoutBindings.data();
-
-	result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
-	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
-	RegisterLayout("compute_filter", dsLayout);
-
-	// コンピュートシェーダ用のパイプラインレイアウト
-	dsLayout = GetDescriptorSetLayout("compute_filter");
-	layoutCI.setLayoutCount = 1;
-	layoutCI.pSetLayouts = &dsLayout;
-
-	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
-	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
-	RegisterLayout("compute_filter", layout);
+	ImGui::Render();
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
 }
 
 VkImageMemoryBarrier ComputeFilterApp::CreateImageMemoryBarrier(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
