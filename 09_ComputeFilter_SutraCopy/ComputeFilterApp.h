@@ -65,15 +65,8 @@ private:
 	void PrepareComputeResource();
 	void CreatePrimitiveResource();
 	void RenderToMain(const VkCommandBuffer& command);
-#if 1
 	void RenderHUD(const VkCommandBuffer& command);
-#else
-	void RenderHUD(VkCommandBuffer command);
-#endif
 
-#if 1
-	BufferObject CreateStorageBuffer(size_t bufferSize, VkBufferUsageFlags usage, VkMemoryPropertyFlags props);
-#endif
 	VkImageMemoryBarrier CreateImageMemoryBarrier(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 };
 

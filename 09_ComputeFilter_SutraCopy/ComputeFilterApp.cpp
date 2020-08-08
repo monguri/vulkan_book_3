@@ -612,7 +612,7 @@ VulkanAppBase::ImageObject ComputeFilterApp::Load2DTextureFromFile(const char* f
 	imageCI.arrayLayers = 1;
 	imageCI.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageCI.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	imageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT; // コンピュートシェーダにも使えるように
 	imageCI.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	imageCI.queueFamilyIndexCount = 0;
 	imageCI.pQueueFamilyIndices = nullptr;
