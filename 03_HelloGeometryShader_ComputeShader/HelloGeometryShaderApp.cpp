@@ -178,6 +178,16 @@ void HelloGeometryShaderApp::Render()
 		vkUnmapMemory(m_device, ubo.memory);
 	}
 
+	{
+		void* p = nullptr;
+		result = vkMapMemory(m_device, m_counterUBO.memory, 0, VK_WHOLE_SIZE, 0, &p);
+		ThrowIfFailed(result, "vkMapMemory Failed.");
+		memcpy(p, &m_counter, sizeof(m_counter));
+		vkUnmapMemory(m_device, m_counterUBO.memory);
+
+		m_counter++;
+	}
+
 	const VkFence& fence = m_commandBuffers[imageIndex].fence;
 	result = vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX);
 	ThrowIfFailed(result, "vkWaitForFences Failed.");

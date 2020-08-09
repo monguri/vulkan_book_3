@@ -45,6 +45,7 @@ private:
 	ModelData m_teapot;
 	std::vector<BufferObject> m_uniformBuffers;
 	BufferObject m_counterUBO;
+	uint32_t m_counter = 0;
 
 	const std::string FlatShaderPipeline = "flatShade";
 	const std::string SmoothShaderPipeline = "smoothShade";
