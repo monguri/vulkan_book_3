@@ -195,6 +195,49 @@ void HelloGeometryShaderApp::Render()
 	const VkCommandBuffer& command = m_commandBuffers[imageIndex].commandBuffer;
 	result = vkBeginCommandBuffer(command, &commandBI);
 	ThrowIfFailed(result, "vkBeginCommandBuffer Failed.");
+
+	// コンピュートパス
+	VkBufferMemoryBarrier barrier;
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barrier.pNext = nullptr;
+	barrier.srcAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.buffer = m_teapot.resVertexBuffer.buffer;
+	barrier.offset = 0;
+	barrier.size = VK_WHOLE_SIZE;
+	
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		1, // bufferMemoryBarrierCount
+		&barrier,
+		0, // imageMemoryBarrierCount
+		nullptr
+	);
+
+	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+	
+	vkCmdPipelineBarrier(
+		command,
+		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+		VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+		0,
+		0, // memoryBarrierCount
+		nullptr,
+		1, // bufferMemoryBarrierCount
+		&barrier,
+		0, // imageMemoryBarrierCount
+		nullptr
+	);
+
+	// グラフィックスパス
 	vkCmdBeginRenderPass(command, &rpBI, VK_SUBPASS_CONTENTS_INLINE);
 
 	const VkExtent2D& extent = m_swapchain->GetSurfaceExtent();
