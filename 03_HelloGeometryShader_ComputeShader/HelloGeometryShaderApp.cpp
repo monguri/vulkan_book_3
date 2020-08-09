@@ -221,6 +221,13 @@ void HelloGeometryShaderApp::Render()
 		nullptr
 	);
 
+	const VkPipelineLayout& pipelineLayout = GetPipelineLayout("compute");
+	vkCmdBindDescriptorSets(command, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &m_computeDS, 0, nullptr);
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
+
+	uint32_t groupX = _countof(TeapotModel::TeapotVerticesPN);
+	vkCmdDispatch(command, groupX, 1, 1);
+
 	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
 	barrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
 	
