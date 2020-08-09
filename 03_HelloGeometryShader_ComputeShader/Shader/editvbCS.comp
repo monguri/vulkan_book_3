@@ -23,6 +23,13 @@ Counter // コンピュートシェーダではUniformBufferもこういう構造体形式でないと使え
 
 void main()
 {
+	if (counter.value > 0)
+	{
+		// 前フレームの値をひく
+		vertices.posnormal[gl_GlobalInvocationID.x].pos.y -= 1.0f * sin((counter.value - 1) * 0.1f); // 60FPSだと一秒で6ラジアンでほぼ2π
+	}
+
+	// 今フレームの値をたす
 	vertices.posnormal[gl_GlobalInvocationID.x].pos.y += 1.0f * sin(counter.value * 0.1f); // 60FPSだと一秒で6ラジアンでほぼ2π
 }
 
