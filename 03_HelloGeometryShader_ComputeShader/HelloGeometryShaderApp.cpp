@@ -602,12 +602,17 @@ void HelloGeometryShaderApp::CreateSampleLayouts()
 void HelloGeometryShaderApp::PrepareComputeResource()
 {
 	// ディスクリプタセットレイアウト
-	std::array<VkDescriptorSetLayoutBinding, 1> dsLayoutBindings;
+	std::array<VkDescriptorSetLayoutBinding, 2> dsLayoutBindings;
 	dsLayoutBindings[0].binding = 0;
 	dsLayoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	dsLayoutBindings[0].descriptorCount = 1;
 	dsLayoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	dsLayoutBindings[0].pImmutableSamplers = nullptr;
+	dsLayoutBindings[1].binding = 1;
+	dsLayoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	dsLayoutBindings[1].descriptorCount = 1;
+	dsLayoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	dsLayoutBindings[1].pImmutableSamplers = nullptr;
 
 	VkDescriptorSetLayoutCreateInfo descSetLayoutCI{};
 	descSetLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -635,5 +640,22 @@ void HelloGeometryShaderApp::PrepareComputeResource()
 	result = vkCreatePipelineLayout(m_device, &layoutCI, nullptr, &layout);
 	ThrowIfFailed(result, "vkCreatePipelineLayout Failed.");
 	RegisterLayout("compute", layout);
+
+	// パイプラインの作成
+	VkPipelineShaderStageCreateInfo computeStage = book_util::LoadShader(m_device, "editvbCS.spv", VK_SHADER_STAGE_COMPUTE_BIT);
+
+	VkComputePipelineCreateInfo pipelineCI{};
+	pipelineCI.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineCI.pNext = nullptr;
+	pipelineCI.flags = 0;
+	pipelineCI.stage = computeStage;
+	pipelineCI.layout = layout;
+	pipelineCI.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineCI.basePipelineIndex = 0;
+
+	result = vkCreateComputePipelines(m_device, VK_NULL_HANDLE, 1, &pipelineCI, nullptr, &m_computePipeline);
+	ThrowIfFailed(result, "vkCreateComputePipelines Failed.");
+
+	vkDestroyShaderModule(m_device, computeStage.module, nullptr);
 }
 

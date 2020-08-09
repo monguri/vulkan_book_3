@@ -30,6 +30,7 @@ private:
 	std::vector<FrameCommandBuffer> m_commandBuffers;
 	std::vector<VkDescriptorSet> m_descriptorSets;
 	std::unordered_map<std::string, VkPipeline> m_pipelines;
+	VkPipeline m_computePipeline = VK_NULL_HANDLE;
 
 	struct ShaderParameters
 	{
