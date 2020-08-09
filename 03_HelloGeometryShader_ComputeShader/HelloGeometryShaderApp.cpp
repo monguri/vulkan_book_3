@@ -50,17 +50,23 @@ void HelloGeometryShaderApp::Cleanup()
 	}
 	m_uniformBuffers.clear();
 
+	DestroyBuffer(m_counterUBO);
+
 	DestroyBuffer(m_teapot.resVertexBuffer);
 	DestroyBuffer(m_teapot.resIndexBuffer);
 
 	vkFreeDescriptorSets(m_device, m_descriptorPool, uint32_t(m_descriptorSets.size()), m_descriptorSets.data());
 	m_descriptorSets.clear();
 
+	vkFreeDescriptorSets(m_device, m_descriptorPool, 1, &m_computeDS);
+
 	for (auto& v : m_pipelines)
 	{
 		vkDestroyPipeline(m_device, v.second, nullptr);
 	}
 	m_pipelines.clear();
+
+	vkDestroyPipeline(m_device, m_computePipeline, nullptr);
 
 	DestroyImage(m_depthBuffer);
 	uint32_t count = uint32_t(m_framebuffers.size());
@@ -601,6 +607,11 @@ void HelloGeometryShaderApp::CreateSampleLayouts()
 
 void HelloGeometryShaderApp::PrepareComputeResource()
 {
+	// 定数バッファの準備
+	VkMemoryPropertyFlags uboMemoryProps = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	uint32_t buffersize = uint32_t(sizeof(ShaderParameters));
+	m_counterUBO = CreateBuffer(buffersize , VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, uboMemoryProps);
+
 	// ディスクリプタセットレイアウト
 	std::array<VkDescriptorSetLayoutBinding, 2> dsLayoutBindings;
 	dsLayoutBindings[0].binding = 0;
@@ -625,6 +636,47 @@ void HelloGeometryShaderApp::PrepareComputeResource()
 	VkResult result = vkCreateDescriptorSetLayout(m_device, &descSetLayoutCI, nullptr, &dsLayout);
 	ThrowIfFailed(result, "vkCreateDescriptorSetLayout Failed.");
 	RegisterLayout("compute", dsLayout);
+
+	// ディスクリプタセット
+	VkDescriptorSetAllocateInfo descriptorSetAI{};
+	descriptorSetAI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descriptorSetAI.pNext = nullptr;
+	descriptorSetAI.descriptorPool = m_descriptorPool;
+	descriptorSetAI.descriptorSetCount = 1;
+	descriptorSetAI.pSetLayouts = &dsLayout;
+
+	result = vkAllocateDescriptorSets(m_device, &descriptorSetAI, &m_computeDS);
+	ThrowIfFailed(result, "vkAllocateDescriptorSets Failed.");
+
+	VkDescriptorBufferInfo bufferSBO{};
+	bufferSBO.buffer = m_teapot.resVertexBuffer.buffer;
+	bufferSBO.offset = 0;
+	bufferSBO.range = VK_WHOLE_SIZE;
+
+	VkWriteDescriptorSet writeDescSetSBO{};
+	writeDescSetSBO.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writeDescSetSBO.pNext = nullptr;
+	writeDescSetSBO.dstSet = m_computeDS;
+	writeDescSetSBO.dstBinding = 0;
+	writeDescSetSBO.dstArrayElement = 0;
+	writeDescSetSBO.descriptorCount = 1;
+	writeDescSetSBO.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	writeDescSetSBO.pImageInfo = nullptr;
+	writeDescSetSBO.pBufferInfo = &bufferSBO;
+	writeDescSetSBO.pTexelBufferView = nullptr;
+
+	VkDescriptorBufferInfo bufferUBO{};
+	bufferUBO.buffer = m_counterUBO.buffer;
+	bufferUBO.offset = 0;
+	bufferUBO.range = VK_WHOLE_SIZE;
+
+	std::vector<VkWriteDescriptorSet> writeDS =
+	{
+		writeDescSetSBO,
+		book_util::CreateWriteDescriptorSet(m_computeDS, 0, &bufferUBO),
+	};
+
+	vkUpdateDescriptorSets(m_device, uint32_t(writeDS.size()), writeDS.data(), 0, nullptr);
 
 	// パイプラインレイアウト
 	VkPipelineLayoutCreateInfo layoutCI{};

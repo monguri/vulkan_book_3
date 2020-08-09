@@ -29,6 +29,7 @@ private:
 
 	std::vector<FrameCommandBuffer> m_commandBuffers;
 	std::vector<VkDescriptorSet> m_descriptorSets;
+	VkDescriptorSet m_computeDS = VK_NULL_HANDLE;
 	std::unordered_map<std::string, VkPipeline> m_pipelines;
 	VkPipeline m_computePipeline = VK_NULL_HANDLE;
 
@@ -43,6 +44,7 @@ private:
 	Camera m_camera;
 	ModelData m_teapot;
 	std::vector<BufferObject> m_uniformBuffers;
+	BufferObject m_counterUBO;
 
 	const std::string FlatShaderPipeline = "flatShade";
 	const std::string SmoothShaderPipeline = "smoothShade";
