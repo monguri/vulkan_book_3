@@ -68,9 +68,6 @@
     <ClInclude Include="..\commonSutraCopy\Swapchain.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="..\commonSutraCopy\TeapotModel.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="..\commonSutraCopy\VulkanAppBase.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -101,20 +98,39 @@
     <ClInclude Include="..\common\imgui\examples\imgui_impl_vulkan.h">
       <Filter>ヘッダー ファイル\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="..\commonSutraCopy\TeapotModelAlignment.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="Shader\drawNormalFS.frag" />
-    <CustomBuild Include="Shader\drawNormalGS.geom" />
-    <CustomBuild Include="Shader\drawNormalVS.vert" />
-    <CustomBuild Include="Shader\flatFS.frag" />
-    <CustomBuild Include="Shader\flatGS.geom" />
-    <CustomBuild Include="Shader\flatVS.vert" />
-    <CustomBuild Include="Shader\shaderFS.frag" />
-    <CustomBuild Include="Shader\shaderVS.vert" />
     <CustomBuild Include="Shader\editvbCS.comp">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\drawNormalFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\drawNormalGS.geom">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\drawNormalVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\flatFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\flatGS.geom">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\flatVS.vert">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\shaderFS.frag">
+      <Filter>Shader</Filter>
+    </CustomBuild>
+    <CustomBuild Include="Shader\shaderVS.vert">
       <Filter>Shader</Filter>
     </CustomBuild>
   </ItemGroup>

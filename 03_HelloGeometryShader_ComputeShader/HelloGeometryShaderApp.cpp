@@ -1,6 +1,6 @@
 #include "HelloGeometryShaderApp.h"
 #include "VulkanBookUtil.h"
-#include "TeapotModel.h"
+#include "TeapotModelAlignment.h"
 #include <array>
 #include <glm/gtc/matrix_transform.hpp>
 #include "imgui.h"
@@ -456,11 +456,11 @@ void HelloGeometryShaderApp::CreatePipeline()
 	std::array<VkVertexInputAttributeDescription, 2> inputAttribs{};
 	inputAttribs[0].location = 0;
 	inputAttribs[0].binding = 0;
-	inputAttribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	inputAttribs[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
 	inputAttribs[0].offset = offsetof(TeapotModel::Vertex, Position);
 	inputAttribs[1].location = 1;
 	inputAttribs[1].binding = 0;
-	inputAttribs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	inputAttribs[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
 	inputAttribs[1].offset = offsetof(TeapotModel::Vertex, Normal);
 
 	VkPipelineVertexInputStateCreateInfo pipelineVisCI{};
