@@ -123,13 +123,17 @@ public:
 	};
 
 	template<class T>
-	ModelData CreateSimpleModel(const std::vector<T>& vertices, const std::vector<uint32_t>& indices)
+	ModelData CreateSimpleModel(const std::vector<T>& vertices, const std::vector<uint32_t>& indices, bool isVBComputable = false)
 	{
 		ModelData model;
 
 		VkMemoryPropertyFlags srcMemoryProps = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		VkMemoryPropertyFlags dstMemoryProps = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		VkBufferUsageFlags usageVB = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		if (isVBComputable)
+		{
+			usageVB |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		}
 		VkBufferUsageFlags usageIB = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		VkBufferCopy copyVB{}, copyIB{};
 		copyVB.srcOffset = 0;
